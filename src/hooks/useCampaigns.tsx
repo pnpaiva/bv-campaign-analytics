@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Campaign {
   id: string;
@@ -25,8 +26,14 @@ export const useCampaigns = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchCampaigns = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('campaigns')
@@ -59,10 +66,22 @@ export const useCampaigns = () => {
     campaign_date: string;
     deal_value?: number;
   }) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create campaigns",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('campaigns')
-        .insert(campaignData)
+        .insert({
+          ...campaignData,
+          user_id: user.id,
+        })
         .select(`
           *,
           creators (
@@ -115,7 +134,7 @@ export const useCampaigns = () => {
 
   useEffect(() => {
     fetchCampaigns();
-  }, []);
+  }, [user]);
 
   return {
     campaigns,

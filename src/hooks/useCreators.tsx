@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Creator {
   id: string;
@@ -16,8 +17,14 @@ export const useCreators = () => {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchCreators = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('creators')
@@ -39,12 +46,22 @@ export const useCreators = () => {
   };
 
   const createCreator = async (name: string, platformHandles: Record<string, string> = {}) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create creators",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('creators')
         .insert({
           name,
           platform_handles: platformHandles,
+          user_id: user.id,
         })
         .select()
         .single();
@@ -71,7 +88,7 @@ export const useCreators = () => {
 
   useEffect(() => {
     fetchCreators();
-  }, []);
+  }, [user]);
 
   return {
     creators,

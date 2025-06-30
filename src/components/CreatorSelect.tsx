@@ -29,6 +29,8 @@ export const CreatorSelect = ({ value, onValueChange }: CreatorSelectProps) => {
     }
   };
 
+  const selectedCreator = creators.find(creator => creator.id === value);
+
   return (
     <div className="space-y-2">
       <Label>Creator</Label>
@@ -39,9 +41,9 @@ export const CreatorSelect = ({ value, onValueChange }: CreatorSelectProps) => {
           </SelectTrigger>
           <SelectContent>
             {loading ? (
-              <SelectItem value="" disabled>Loading...</SelectItem>
+              <SelectItem value="loading" disabled>Loading...</SelectItem>
             ) : creators.length === 0 ? (
-              <SelectItem value="" disabled>No creators found</SelectItem>
+              <SelectItem value="no-creators" disabled>No creators found</SelectItem>
             ) : (
               creators.map((creator) => (
                 <SelectItem key={creator.id} value={creator.id}>
