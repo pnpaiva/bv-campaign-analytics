@@ -8,7 +8,7 @@ import { CreatorSelect } from "@/components/CreatorSelect";
 import { ClientSelect } from "@/components/ClientSelect";
 import { MasterCampaignSelect } from "@/components/MasterCampaignSelect";
 import { Campaign } from "@/hooks/useCampaigns";
-import { Youtube, Instagram, Trash2, Plus } from "lucide-react";
+import { Youtube, Instagram, Trash2, Plus, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EditCampaignDialogProps {
@@ -35,7 +35,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
   const [campaignDate, setCampaignDate] = useState("");
   const [campaignMonth, setCampaignMonth] = useState("");
   const [dealValue, setDealValue] = useState("");
-  const [contentUrls, setContentUrls] = useState<{ platform: string; url: string }[]>([]);
+  const [contentUrls, setContentUrls] = useState<{ platform: string; url: string; confirmed: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingUrls, setLoadingUrls] = useState(false);
 
@@ -52,7 +52,8 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
 
       const urls = data.map(item => ({
         platform: item.platform,
-        url: item.content_url
+        url: item.content_url,
+        confirmed: true // Existing URLs are already confirmed
       }));
       
       setContentUrls(urls);
@@ -81,11 +82,27 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
   }, [campaign, open]);
 
   const addContentUrl = (platform: string) => {
-    setContentUrls(prev => [...prev, { platform, url: "" }]);
+    setContentUrls(prev => [...prev, { platform, url: "", confirmed: false }]);
   };
 
   const updateContentUrl = (index: number, url: string) => {
-    setContentUrls(prev => prev.map((item, i) => i === index ? { ...item, url } : item));
+    setContentUrls(prev => prev.map((item, i) => i === index ? { ...item, url, confirmed: false } : item));
+  };
+
+  const confirmContentUrl = (index: number) => {
+    const url = contentUrls[index].url.trim();
+    if (!url) return;
+    
+    // Basic YouTube URL validation
+    if (contentUrls[index].platform === 'YouTube') {
+      const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      if (!youtubeRegex.test(url)) {
+        alert('Please enter a valid YouTube URL');
+        return;
+      }
+    }
+    
+    setContentUrls(prev => prev.map((item, i) => i === index ? { ...item, confirmed: true } : item));
   };
 
   const removeContentUrl = (index: number) => {
@@ -97,6 +114,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     
     setSaving(true);
     try {
+      const confirmedUrls = contentUrls.filter(url => url.confirmed && url.url.trim() !== '');
       await onSave({
         brand_name: brandName,
         creator_id: selectedCreator,
@@ -105,7 +123,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
         campaign_date: campaignDate,
         campaign_month: campaignMonth || undefined,
         deal_value: dealValue ? parseFloat(dealValue) : undefined,
-        content_urls: contentUrls.filter(url => url.url.trim() !== ''),
+        content_urls: confirmedUrls.map(({ platform, url }) => ({ platform, url })),
       });
       onOpenChange(false);
     } finally {
@@ -119,7 +137,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     }
     acc[url.platform].push({ ...url, index });
     return acc;
-  }, {} as Record<string, Array<{ platform: string; url: string; index: number }>>);
+  }, {} as Record<string, Array<{ platform: string; url: string; confirmed: boolean; index: number }>>);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -200,12 +218,34 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="YouTube URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className="flex-1"
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
+                          disabled={item.confirmed}
                         />
+                        {!item.confirmed ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => confirmContentUrl(item.index)}
+                            disabled={!item.url.trim()}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setContentUrls(prev => prev.map((url, i) => i === item.index ? { ...url, confirmed: false } : url))}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Edit
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => removeContentUrl(item.index)}
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -227,12 +267,34 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="Instagram URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className="flex-1"
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
+                          disabled={item.confirmed}
                         />
+                        {!item.confirmed ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => confirmContentUrl(item.index)}
+                            disabled={!item.url.trim()}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setContentUrls(prev => prev.map((url, i) => i === item.index ? { ...url, confirmed: false } : url))}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Edit
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => removeContentUrl(item.index)}
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -254,12 +316,34 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="TikTok URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className="flex-1"
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
+                          disabled={item.confirmed}
                         />
+                        {!item.confirmed ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => confirmContentUrl(item.index)}
+                            disabled={!item.url.trim()}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setContentUrls(prev => prev.map((url, i) => i === item.index ? { ...url, confirmed: false } : url))}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Edit
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => removeContentUrl(item.index)}
+                          className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
