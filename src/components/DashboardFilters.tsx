@@ -3,38 +3,46 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useCampaigns } from "@/hooks/useCampaigns";
+import { Campaign } from "@/hooks/useCampaigns";
 
 interface DashboardFiltersProps {
-  onFiltersChange: (filters: {
-    startDate?: string;
-    endDate?: string;
-    campaignIds?: string[];
-  }) => void;
+  campaigns: Campaign[];
+  onFilteredCampaignsChange: (campaigns: Campaign[]) => void;
 }
 
-export const DashboardFilters = ({ onFiltersChange }: DashboardFiltersProps) => {
-  const { campaigns } = useCampaigns();
+export const DashboardFilters = ({ campaigns, onFilteredCampaignsChange }: DashboardFiltersProps) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
 
   const handleFilterChange = () => {
-    onFiltersChange({
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      campaignIds: selectedCampaigns.length > 0 ? selectedCampaigns : undefined,
-    });
+    let filteredCampaigns = campaigns;
+
+    if (startDate || endDate) {
+      filteredCampaigns = filteredCampaigns.filter(campaign => {
+        const campaignDate = new Date(campaign.campaign_date);
+        if (startDate && campaignDate < new Date(startDate)) return false;
+        if (endDate && campaignDate > new Date(endDate)) return false;
+        return true;
+      });
+    }
+
+    if (selectedCampaigns.length > 0) {
+      filteredCampaigns = filteredCampaigns.filter(campaign => 
+        selectedCampaigns.includes(campaign.id)
+      );
+    }
+
+    onFilteredCampaignsChange(filteredCampaigns);
   };
 
   const handleClearFilters = () => {
     setStartDate("");
     setEndDate("");
     setSelectedCampaigns([]);
-    onFiltersChange({});
+    onFilteredCampaignsChange(campaigns);
   };
 
   const toggleCampaign = (campaignId: string) => {

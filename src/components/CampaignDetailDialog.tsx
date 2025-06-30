@@ -12,6 +12,9 @@ interface CampaignDetailDialogProps {
   campaign: Campaign | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEdit?: (campaign: Campaign) => void;
+  onDelete?: (campaign: Campaign) => Promise<void>;
+  onRefreshAnalytics?: (campaign: Campaign) => Promise<void>;
 }
 
 interface AnalyticsData {
@@ -26,7 +29,14 @@ interface AnalyticsData {
   fetched_at: string;
 }
 
-export const CampaignDetailDialog = ({ campaign, open, onOpenChange }: CampaignDetailDialogProps) => {
+export const CampaignDetailDialog = ({ 
+  campaign, 
+  open, 
+  onOpenChange, 
+  onEdit,
+  onDelete,
+  onRefreshAnalytics 
+}: CampaignDetailDialogProps) => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -200,7 +210,22 @@ export const CampaignDetailDialog = ({ campaign, open, onOpenChange }: CampaignD
           </Card>
         </div>
         
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {onEdit && (
+            <Button variant="outline" onClick={() => onEdit(campaign)}>
+              Edit
+            </Button>
+          )}
+          {onRefreshAnalytics && (
+            <Button variant="outline" onClick={() => onRefreshAnalytics(campaign)}>
+              Refresh Analytics
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="destructive" onClick={() => onDelete(campaign)}>
+              Delete
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
