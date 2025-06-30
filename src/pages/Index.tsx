@@ -8,11 +8,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { Calendar, TrendingUp, Users, DollarSign, Youtube, Instagram, FileText, Download, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useCampaigns } from "@/hooks/useCampaigns";
+import { AuthPage } from "@/components/AuthPage";
+import { CreatorSelect } from "@/components/CreatorSelect";
+import { DashboardFilters } from "@/components/DashboardFilters";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { campaigns, createCampaign, getTotalEngagement } = useCampaigns();
+  const { toast } = useToast();
   const [currentView, setCurrentView] = useState("dashboard");
-  
+  const [dashboardFilters, setDashboardFilters] = useState<{
+    startDate?: string;
+    endDate?: string;
+    campaignIds?: string[];
+  }>({});
+
+  // Campaign form state
+  const [brandName, setBrandName] = useState("");
+  const [selectedCreator, setSelectedCreator] = useState("");
+  const [campaignDate, setCampaignDate] = useState("");
+  const [dealValue, setDealValue] = useState("");
+  const [contentUrls, setContentUrls] = useState<{ platform: string; url: string }[]>([]);
+
   // Sample data for demonstration
   const campaignData = [
     { name: "Week 1", views: 45000, engagement: 3200, reach: 38000 },
@@ -27,70 +47,79 @@ const Index = () => {
     { name: "TikTok", value: 20, color: "#000000" },
   ];
 
-  const campaigns = [
-    {
-      id: 1,
-      brand: "Nike",
-      creator: "@fitnessguru",
-      date: "2024-06-28",
-      status: "completed",
-      totalViews: "2.3M",
-      engagementRate: "4.2%",
-      dealValue: "$15,000"
-    },
-    {
-      id: 2,
-      brand: "Samsung",
-      creator: "@techreviewer",
-      date: "2024-06-25",
-      status: "analyzing",
-      totalViews: "890K",
-      engagementRate: "3.8%",
-      dealValue: "$8,500"
-    },
-    {
-      id: 3,
-      brand: "Starbucks",
-      creator: "@coffeeaddict",
-      date: "2024-06-20",
-      status: "completed",
-      totalViews: "1.1M",
-      engagementRate: "5.1%",
-      dealValue: "$12,000"
-    }
-  ];
-
-  if (!isAuthenticated) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-gray-900">Beyond Views</CardTitle>
-            <CardDescription>Professional influencer marketing analytics</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="Enter your email" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Enter your password" />
-            </div>
-            <Button 
-              className="w-full" 
-              onClick={() => setIsAuthenticated(true)}
-            >
-              Sign In
-            </Button>
-            <p className="text-sm text-center text-gray-600">
-              Demo mode - Click Sign In to continue
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  const handleCreateCampaign = async () => {
+    if (!brandName || !selectedCreator || !campaignDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const campaign = await createCampaign({
+      brand_name: brandName,
+      creator_id: selectedCreator,
+      campaign_date: campaignDate,
+      deal_value: dealValue ? parseFloat(dealValue) : undefined,
+    });
+
+    if (campaign) {
+      setBrandName("");
+      setSelectedCreator("");
+      setCampaignDate("");
+      setDealValue("");
+      setContentUrls([]);
+      setCurrentView("campaigns");
+    }
+  };
+
+  const handleGenerateReport = (campaignId: string) => {
+    toast({
+      title: "Report Generation",
+      description: "Report generation feature will be implemented with PDF creation capability.",
+    });
+  };
+
+  const addContentUrl = (platform: string) => {
+    setContentUrls(prev => [...prev, { platform, url: "" }]);
+  };
+
+  const updateContentUrl = (index: number, url: string) => {
+    setContentUrls(prev => prev.map((item, i) => i === index ? { ...item, url } : item));
+  };
+
+  const removeContentUrl = (index: number) => {
+    setContentUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const totalEngagement = getTotalEngagement(
+    dashboardFilters.startDate,
+    dashboardFilters.endDate,
+    dashboardFilters.campaignIds
+  );
+
+  const filteredCampaigns = campaigns.filter(campaign => {
+    if (dashboardFilters.startDate && new Date(campaign.campaign_date) < new Date(dashboardFilters.startDate)) return false;
+    if (dashboardFilters.endDate && new Date(campaign.campaign_date) > new Date(dashboardFilters.endDate)) return false;
+    if (dashboardFilters.campaignIds && dashboardFilters.campaignIds.length > 0 && !dashboardFilters.campaignIds.includes(campaign.id)) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -134,6 +163,7 @@ const Index = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">{user.email}</span>
               <Button variant="outline" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
                 Generate Report
@@ -141,7 +171,7 @@ const Index = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsAuthenticated(false)}
+                onClick={signOut}
               >
                 Sign Out
               </Button>
@@ -153,6 +183,9 @@ const Index = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {currentView === "dashboard" && (
           <div className="space-y-6">
+            {/* Dashboard Filters */}
+            <DashboardFilters onFiltersChange={setDashboardFilters} />
+
             {/* Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
@@ -160,13 +193,15 @@ const Index = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Campaigns</p>
-                      <p className="text-3xl font-bold text-gray-900">24</p>
+                      <p className="text-3xl font-bold text-gray-900">{filteredCampaigns.length}</p>
                     </div>
                     <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Calendar className="h-6 w-6 text-blue-600" />
                     </div>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+12% from last month</p>
+                  <p className="text-sm text-green-600 mt-2">
+                    {dashboardFilters.startDate || dashboardFilters.endDate || dashboardFilters.campaignIds ? 'Filtered results' : 'All campaigns'}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -175,13 +210,15 @@ const Index = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Total Views</p>
-                      <p className="text-3xl font-bold text-gray-900">8.2M</p>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {filteredCampaigns.reduce((sum, c) => sum + c.total_views, 0).toLocaleString()}
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-6 w-6 text-green-600" />
                     </div>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+8% from last month</p>
+                  <p className="text-sm text-green-600 mt-2">From selected campaigns</p>
                 </CardContent>
               </Card>
 
@@ -189,14 +226,14 @@ const Index = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Avg. Engagement</p>
-                      <p className="text-3xl font-bold text-gray-900">4.1%</p>
+                      <p className="text-sm font-medium text-gray-600">Total Engagement</p>
+                      <p className="text-3xl font-bold text-gray-900">{totalEngagement.toLocaleString()}</p>
                     </div>
                     <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
                       <Users className="h-6 w-6 text-purple-600" />
                     </div>
                   </div>
-                  <p className="text-sm text-red-600 mt-2">-2% from last month</p>
+                  <p className="text-sm text-green-600 mt-2">Filtered engagement</p>
                 </CardContent>
               </Card>
 
@@ -204,14 +241,18 @@ const Index = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Revenue</p>
-                      <p className="text-3xl font-bold text-gray-900">$485K</p>
+                      <p className="text-sm font-medium text-gray-600">Avg. Engagement Rate</p>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {filteredCampaigns.length > 0 
+                          ? (filteredCampaigns.reduce((sum, c) => sum + c.engagement_rate, 0) / filteredCampaigns.length).toFixed(1)
+                          : 0}%
+                      </p>
                     </div>
                     <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-yellow-600" />
                     </div>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+18% from last month</p>
+                  <p className="text-sm text-green-600 mt-2">From filtered campaigns</p>
                 </CardContent>
               </Card>
             </div>
@@ -290,8 +331,9 @@ const Index = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{campaign.brand}</h3>
-                          <p className="text-sm text-gray-600">{campaign.creator}</p>
+                          <h3 className="text-lg font-semibold text-gray-900">{campaign.brand_name}</h3>
+                          <p className="text-sm text-gray-600">{campaign.creators?.name}</p>
+                          <p className="text-xs text-gray-500">{new Date(campaign.campaign_date).toLocaleDateString()}</p>
                         </div>
                         <Badge variant={campaign.status === "completed" ? "default" : "secondary"}>
                           {campaign.status}
@@ -299,18 +341,22 @@ const Index = () => {
                       </div>
                       <div className="flex items-center space-x-6 text-sm text-gray-600">
                         <div>
-                          <p className="font-medium">{campaign.totalViews}</p>
+                          <p className="font-medium">{campaign.total_views.toLocaleString()}</p>
                           <p>Total Views</p>
                         </div>
                         <div>
-                          <p className="font-medium">{campaign.engagementRate}</p>
+                          <p className="font-medium">{campaign.engagement_rate}%</p>
                           <p>Engagement</p>
                         </div>
                         <div>
-                          <p className="font-medium">{campaign.dealValue}</p>
+                          <p className="font-medium">{campaign.deal_value ? `$${campaign.deal_value.toLocaleString()}` : 'N/A'}</p>
                           <p>Deal Value</p>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleGenerateReport(campaign.id)}
+                        >
                           <Download className="h-4 w-4 mr-2" />
                           Report
                         </Button>
@@ -336,21 +382,36 @@ const Index = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="brand">Brand Name</Label>
-                    <Input id="brand" placeholder="Enter brand name" />
+                    <Input 
+                      id="brand" 
+                      placeholder="Enter brand name" 
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="creator">Creator Name</Label>
-                    <Input id="creator" placeholder="Enter creator name" />
+                    <CreatorSelect value={selectedCreator} onValueChange={setSelectedCreator} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date">Campaign Date</Label>
-                    <Input id="date" type="date" />
+                    <Input 
+                      id="date" 
+                      type="date" 
+                      value={campaignDate}
+                      onChange={(e) => setCampaignDate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="deal">Deal Value (Optional)</Label>
-                    <Input id="deal" placeholder="$0.00" />
+                    <Input 
+                      id="deal" 
+                      placeholder="0.00" 
+                      type="number"
+                      value={dealValue}
+                      onChange={(e) => setDealValue(e.target.value)}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -362,39 +423,36 @@ const Index = () => {
                 <CardDescription>Add URLs from YouTube, Instagram, and TikTok</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {contentUrls.map((item, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input 
+                      placeholder={`${item.platform} URL`}
+                      value={item.url}
+                      onChange={(e) => updateContentUrl(index, e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => removeContentUrl(index)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                
                 <div className="space-y-2">
-                  <Label className="flex items-center">
+                  <Button variant="outline" size="sm" onClick={() => addContentUrl('YouTube')}>
                     <Youtube className="h-4 w-4 mr-2 text-red-600" />
-                    YouTube URLs
-                  </Label>
-                  <Input placeholder="https://youtube.com/watch?v=..." />
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Another YouTube URL
+                    Add YouTube URL
                   </Button>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="flex items-center">
+                  <Button variant="outline" size="sm" onClick={() => addContentUrl('Instagram')}>
                     <Instagram className="h-4 w-4 mr-2 text-pink-600" />
-                    Instagram URLs
-                  </Label>
-                  <Input placeholder="https://instagram.com/p/..." />
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Another Instagram URL
+                    Add Instagram URL
                   </Button>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="flex items-center">
+                  <Button variant="outline" size="sm" onClick={() => addContentUrl('TikTok')}>
                     <div className="h-4 w-4 mr-2 bg-black rounded"></div>
-                    TikTok URLs
-                  </Label>
-                  <Input placeholder="https://tiktok.com/@user/video/..." />
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Another TikTok URL
+                    Add TikTok URL
                   </Button>
                 </div>
               </CardContent>
@@ -404,7 +462,7 @@ const Index = () => {
               <Button variant="outline" onClick={() => setCurrentView("campaigns")}>
                 Cancel
               </Button>
-              <Button onClick={() => setCurrentView("campaigns")}>
+              <Button onClick={handleCreateCampaign}>
                 Create Campaign
               </Button>
             </div>
