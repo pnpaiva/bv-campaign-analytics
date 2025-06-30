@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useDirectAnalytics } from '@/hooks/useDirectAnalytics';
 
 export interface Campaign {
   id: string;
@@ -34,7 +34,7 @@ export const useCampaigns = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { triggerAnalytics, fetchYouTubeAnalytics } = useAnalytics();
+  const { fetchDirectAnalytics } = useDirectAnalytics();
 
   const fetchCampaigns = async () => {
     if (!user) {
@@ -43,6 +43,7 @@ export const useCampaigns = () => {
     }
 
     try {
+      console.log('=== Fetching Campaigns ===');
       const { data, error } = await supabase
         .from('campaigns')
         .select(`
@@ -59,7 +60,8 @@ export const useCampaigns = () => {
 
       if (error) throw error;
       
-      // Type cast the response to match our Campaign interface
+      console.log('Raw campaign data:', data);
+      
       const typedCampaigns: Campaign[] = (data || []).map(campaign => ({
         ...campaign,
         status: campaign.status as 'analyzing' | 'completed' | 'draft',
@@ -72,6 +74,7 @@ export const useCampaigns = () => {
         } : undefined
       }));
       
+      console.log('Processed campaigns:', typedCampaigns);
       setCampaigns(typedCampaigns);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
@@ -95,51 +98,62 @@ export const useCampaigns = () => {
       return;
     }
 
+    console.log('=== Refreshing All Campaigns ===');
+    
     try {
       toast({
         title: "Refreshing campaigns",
         description: "Fetching latest analytics for all campaigns...",
       });
 
-      // Get all campaigns with analytics data
+      // Get all campaigns with their analytics data
       const { data: campaignsWithAnalytics, error } = await supabase
         .from('campaigns')
         .select(`
-          *,
+          id,
+          brand_name,
           analytics_data (content_url, platform)
         `)
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      // Process each campaign that has analytics data
+      console.log('Campaigns with analytics:', campaignsWithAnalytics);
+
+      let refreshCount = 0;
+      
+      // Process each campaign
       for (const campaign of campaignsWithAnalytics || []) {
+        console.log(`Processing campaign: ${campaign.brand_name}`);
+        
         if (campaign.analytics_data && campaign.analytics_data.length > 0) {
+          // Use existing analytics data URLs
           for (const analytics of campaign.analytics_data) {
             if (analytics.platform === 'youtube' && analytics.content_url) {
               try {
-                await supabase.functions.invoke('direct-youtube-analytics', {
-                  body: {
-                    campaign_id: campaign.id,
-                    video_url: analytics.content_url
-                  }
-                });
+                console.log(`Refreshing analytics for URL: ${analytics.content_url}`);
+                await fetchDirectAnalytics(campaign.id, analytics.content_url);
+                refreshCount++;
               } catch (error) {
-                console.error('Failed to refresh analytics for campaign:', campaign.id, error);
+                console.error(`Failed to refresh analytics for ${analytics.content_url}:`, error);
               }
             }
           }
+        } else {
+          // If no analytics data exists, try to find YouTube URLs from recent campaign creation
+          // This is a fallback for campaigns that might have been created with URLs but no analytics
+          console.log(`No analytics data found for campaign: ${campaign.brand_name}`);
         }
       }
 
-      // Refresh the campaigns list after a delay to allow analytics processing
+      // Refresh the campaigns list after processing
       setTimeout(async () => {
         await fetchCampaigns();
-      }, 2000);
+      }, 3000);
 
       toast({
         title: "Success",
-        description: "All campaigns refreshed successfully",
+        description: `Refreshed analytics for ${refreshCount} videos`,
       });
 
     } catch (error) {
@@ -170,6 +184,9 @@ export const useCampaigns = () => {
       });
       return null;
     }
+
+    console.log('=== Creating Campaign ===');
+    console.log('Campaign data:', campaignData);
 
     try {
       const { data, error } = await supabase
@@ -213,43 +230,41 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
+      // Process content URLs for analytics
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
-        console.log('Processing content URLs:', campaignData.content_urls);
+        console.log('Processing content URLs for analytics:', campaignData.content_urls);
         
-        // Use direct analytics instead of the complex job system
+        let analyticsProcessed = 0;
+        
         for (const contentUrl of campaignData.content_urls) {
           if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
             try {
-              console.log('Fetching direct analytics for:', contentUrl.url);
-              
-              // Call the new direct analytics function
-              const { data: analyticsData, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
-                body: {
-                  campaign_id: typedCampaign.id,
-                  video_url: contentUrl.url
-                }
-              });
-
-              if (analyticsError) {
-                console.error('Failed to fetch direct analytics:', analyticsError);
-              } else {
-                console.log('Direct analytics successful:', analyticsData);
-              }
+              console.log(`Processing YouTube URL: ${contentUrl.url}`);
+              await fetchDirectAnalytics(typedCampaign.id, contentUrl.url);
+              analyticsProcessed++;
             } catch (analyticsError) {
               console.error('Analytics fetch failed for URL:', contentUrl.url, analyticsError);
             }
           }
         }
 
-        // Refresh campaigns after a short delay
-        setTimeout(async () => {
-          await fetchCampaigns();
-        }, 2000);
+        // Refresh campaigns after processing analytics
+        if (analyticsProcessed > 0) {
+          setTimeout(async () => {
+            await fetchCampaigns();
+          }, 2000);
 
-        toast({
-          title: "Success",
-          description: "Campaign created and analytics are being fetched directly",
-        });
+          toast({
+            title: "Success",
+            description: `Campaign created and ${analyticsProcessed} video(s) processed for analytics`,
+          });
+        } else {
+          toast({
+            title: "Campaign Created",
+            description: "Campaign created but no valid YouTube URLs found for analytics",
+            variant: "default",
+          });
+        }
       } else {
         toast({
           title: "Success",
@@ -270,49 +285,45 @@ export const useCampaigns = () => {
   };
 
   const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube'], videoUrl?: string) => {
+    console.log('=== Triggering Campaign Analytics ===');
+    console.log('Campaign ID:', campaignId);
+    console.log('Video URL:', videoUrl);
+    
     try {
-      // Get analytics data for this campaign to find video URLs
-      const { data: analyticsData, error } = await supabase
-        .from('analytics_data')
-        .select('content_url, platform')
-        .eq('campaign_id', campaignId);
-
-      if (error) throw error;
-
       if (videoUrl && platforms.includes('youtube')) {
-        console.log('Triggering direct analytics for specific URL:', videoUrl);
-        
-        const { data, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
-          body: {
-            campaign_id: campaignId,
-            video_url: videoUrl
-          }
-        });
+        console.log('Processing specific video URL:', videoUrl);
+        await fetchDirectAnalytics(campaignId, videoUrl);
+      } else {
+        // Get existing analytics data for this campaign
+        const { data: analyticsData, error } = await supabase
+          .from('analytics_data')
+          .select('content_url, platform')
+          .eq('campaign_id', campaignId);
 
-        if (analyticsError) {
-          throw analyticsError;
-        }
+        if (error) throw error;
 
-        console.log('Direct analytics result:', data);
-      } else if (analyticsData && analyticsData.length > 0) {
-        // Use existing URLs from analytics data
-        for (const data of analyticsData) {
-          if (data.platform === 'youtube' && data.content_url) {
-            const { error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
-              body: {
-                campaign_id: campaignId,
-                video_url: data.content_url
+        console.log('Existing analytics data:', analyticsData);
+
+        if (analyticsData && analyticsData.length > 0) {
+          let processedCount = 0;
+          for (const data of analyticsData) {
+            if (data.platform === 'youtube' && data.content_url) {
+              try {
+                console.log(`Refreshing analytics for: ${data.content_url}`);
+                await fetchDirectAnalytics(campaignId, data.content_url);
+                processedCount++;
+              } catch (error) {
+                console.error('Failed to refresh analytics for URL:', data.content_url, error);
               }
-            });
-
-            if (analyticsError) {
-              console.error('Failed to refresh analytics for URL:', data.content_url, analyticsError);
             }
           }
+          
+          if (processedCount === 0) {
+            throw new Error('No YouTube URLs found to refresh');
+          }
+        } else {
+          throw new Error('No analytics data found for this campaign');
         }
-      } else {
-        // Fallback to existing method
-        await triggerAnalytics(campaignId, platforms);
       }
       
       // Refresh campaigns to get updated data
@@ -328,7 +339,7 @@ export const useCampaigns = () => {
       console.error('Error triggering analytics:', error);
       toast({
         title: "Error",
-        description: "Failed to refresh analytics",
+        description: `Failed to refresh analytics: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -354,7 +365,6 @@ export const useCampaigns = () => {
     }
 
     try {
-      // First update the basic campaign data
       const updateData = {
         brand_name: campaignData.brand_name,
         creator_id: campaignData.creator_id,
@@ -384,7 +394,6 @@ export const useCampaigns = () => {
 
       if (error) throw error;
       
-      // Type cast the response to match our Campaign interface
       const typedCampaign: Campaign = {
         ...data,
         status: data.status as 'analyzing' | 'completed' | 'draft',
@@ -397,35 +406,20 @@ export const useCampaigns = () => {
         } : undefined
       };
       
-      // Process new content URLs if provided
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
         console.log('Processing updated content URLs:', campaignData.content_urls);
         
-        // Process YouTube URLs for analytics
         for (const contentUrl of campaignData.content_urls) {
           if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
             try {
               console.log('Fetching analytics for updated URL:', contentUrl.url);
-              
-              const { data: analyticsData, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
-                body: {
-                  campaign_id: campaignId,
-                  video_url: contentUrl.url
-                }
-              });
-
-              if (analyticsError) {
-                console.error('Failed to fetch analytics for updated URL:', analyticsError);
-              } else {
-                console.log('Analytics successful for updated URL:', analyticsData);
-              }
+              await fetchDirectAnalytics(campaignId, contentUrl.url);
             } catch (analyticsError) {
               console.error('Analytics fetch failed for updated URL:', contentUrl.url, analyticsError);
             }
           }
         }
 
-        // Refresh campaigns after processing URLs to get updated totals
         setTimeout(async () => {
           await fetchCampaigns();
         }, 3000);
@@ -435,7 +429,6 @@ export const useCampaigns = () => {
           description: "Campaign updated and analytics are being refreshed",
         });
       } else {
-        // Update local state immediately if no URLs to process
         setCampaigns(prev => prev.map(campaign => 
           campaign.id === campaignId ? typedCampaign : campaign
         ));
@@ -532,7 +525,6 @@ export const useCampaigns = () => {
           filter: `user_id=eq.${user.id}`
         },
         () => {
-          // Refresh campaigns when any change occurs
           fetchCampaigns();
         }
       )
