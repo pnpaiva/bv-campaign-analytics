@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +10,10 @@ export interface Campaign {
   brand_name: string;
   creator_id: string;
   campaign_date: string;
+  campaign_month?: string;
+  client_id?: string;
+  client_name?: string;
+  master_campaign_id?: string;
   deal_value?: number;
   status: 'analyzing' | 'completed' | 'draft';
   total_views: number;
@@ -19,6 +24,9 @@ export interface Campaign {
   creators?: {
     name: string;
     platform_handles: Record<string, string>;
+  };
+  clients?: {
+    name: string;
   };
 }
 
@@ -43,6 +51,9 @@ export const useCampaigns = () => {
           creators (
             name,
             platform_handles
+          ),
+          clients (
+            name
           )
         `)
         .order('created_at', { ascending: false });
@@ -56,6 +67,9 @@ export const useCampaigns = () => {
         creators: campaign.creators ? {
           name: campaign.creators.name,
           platform_handles: (campaign.creators.platform_handles as Record<string, string>) || {}
+        } : undefined,
+        clients: campaign.clients ? {
+          name: campaign.clients.name
         } : undefined
       }));
       
@@ -76,6 +90,9 @@ export const useCampaigns = () => {
     brand_name: string;
     creator_id: string;
     campaign_date: string;
+    campaign_month?: string;
+    client_id?: string;
+    master_campaign_id?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => {
@@ -95,6 +112,9 @@ export const useCampaigns = () => {
           brand_name: campaignData.brand_name,
           creator_id: campaignData.creator_id,
           campaign_date: campaignData.campaign_date,
+          campaign_month: campaignData.campaign_month,
+          client_id: campaignData.client_id,
+          master_campaign_id: campaignData.master_campaign_id,
           deal_value: campaignData.deal_value,
           user_id: user.id,
           status: 'analyzing',
@@ -104,6 +124,9 @@ export const useCampaigns = () => {
           creators (
             name,
             platform_handles
+          ),
+          clients (
+            name
           )
         `)
         .single();
@@ -116,6 +139,9 @@ export const useCampaigns = () => {
         creators: data.creators ? {
           name: data.creators.name,
           platform_handles: (data.creators.platform_handles as Record<string, string>) || {}
+        } : undefined,
+        clients: data.clients ? {
+          name: data.clients.name
         } : undefined
       };
       
@@ -223,6 +249,9 @@ export const useCampaigns = () => {
     brand_name?: string;
     creator_id?: string;
     campaign_date?: string;
+    campaign_month?: string;
+    client_id?: string;
+    master_campaign_id?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => {
@@ -241,6 +270,9 @@ export const useCampaigns = () => {
         brand_name: campaignData.brand_name,
         creator_id: campaignData.creator_id,
         campaign_date: campaignData.campaign_date,
+        campaign_month: campaignData.campaign_month,
+        client_id: campaignData.client_id,
+        master_campaign_id: campaignData.master_campaign_id,
         deal_value: campaignData.deal_value,
       };
 
@@ -254,6 +286,9 @@ export const useCampaigns = () => {
           creators (
             name,
             platform_handles
+          ),
+          clients (
+            name
           )
         `)
         .single();
@@ -267,6 +302,9 @@ export const useCampaigns = () => {
         creators: data.creators ? {
           name: data.creators.name,
           platform_handles: (data.creators.platform_handles as Record<string, string>) || {}
+        } : undefined,
+        clients: data.clients ? {
+          name: data.clients.name
         } : undefined
       };
       

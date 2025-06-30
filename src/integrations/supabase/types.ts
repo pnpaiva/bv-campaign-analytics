@@ -179,11 +179,15 @@ export type Database = {
         Row: {
           brand_name: string
           campaign_date: string
+          campaign_month: string | null
+          client_id: string | null
+          client_name: string | null
           created_at: string
           creator_id: string
           deal_value: number | null
           engagement_rate: number | null
           id: string
+          master_campaign_id: string | null
           status: string | null
           total_engagement: number | null
           total_views: number | null
@@ -193,11 +197,15 @@ export type Database = {
         Insert: {
           brand_name: string
           campaign_date: string
+          campaign_month?: string | null
+          client_id?: string | null
+          client_name?: string | null
           created_at?: string
           creator_id: string
           deal_value?: number | null
           engagement_rate?: number | null
           id?: string
+          master_campaign_id?: string | null
           status?: string | null
           total_engagement?: number | null
           total_views?: number | null
@@ -207,11 +215,15 @@ export type Database = {
         Update: {
           brand_name?: string
           campaign_date?: string
+          campaign_month?: string | null
+          client_id?: string | null
+          client_name?: string | null
           created_at?: string
           creator_id?: string
           deal_value?: number | null
           engagement_rate?: number | null
           id?: string
+          master_campaign_id?: string | null
           status?: string | null
           total_engagement?: number | null
           total_views?: number | null
@@ -220,13 +232,51 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "campaigns_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
             referencedRelation: "creators"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaigns_master_campaign_id_fkey"
+            columns: ["master_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      clients: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       creators: {
         Row: {

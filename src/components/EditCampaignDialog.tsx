@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreatorSelect } from "@/components/CreatorSelect";
+import { ClientSelect } from "@/components/ClientSelect";
+import { MasterCampaignSelect } from "@/components/MasterCampaignSelect";
 import { Campaign } from "@/hooks/useCampaigns";
 import { Youtube, Instagram, Trash2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +19,9 @@ interface EditCampaignDialogProps {
     brand_name?: string;
     creator_id?: string;
     campaign_date?: string;
+    campaign_month?: string;
+    client_id?: string;
+    master_campaign_id?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => Promise<void>;
@@ -25,7 +30,10 @@ interface EditCampaignDialogProps {
 export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: EditCampaignDialogProps) => {
   const [brandName, setBrandName] = useState("");
   const [selectedCreator, setSelectedCreator] = useState("");
+  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedMasterCampaign, setSelectedMasterCampaign] = useState("");
   const [campaignDate, setCampaignDate] = useState("");
+  const [campaignMonth, setCampaignMonth] = useState("");
   const [dealValue, setDealValue] = useState("");
   const [contentUrls, setContentUrls] = useState<{ platform: string; url: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -61,7 +69,10 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     if (campaign && open) {
       setBrandName(campaign.brand_name);
       setSelectedCreator(campaign.creator_id);
+      setSelectedClient(campaign.client_id || "");
+      setSelectedMasterCampaign(campaign.master_campaign_id || "");
       setCampaignDate(campaign.campaign_date);
+      setCampaignMonth(campaign.campaign_month || "");
       setDealValue(campaign.deal_value?.toString() || "");
       
       // Fetch existing content URLs from the database
@@ -89,7 +100,10 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
       await onSave({
         brand_name: brandName,
         creator_id: selectedCreator,
+        client_id: selectedClient || undefined,
+        master_campaign_id: selectedMasterCampaign || undefined,
         campaign_date: campaignDate,
+        campaign_month: campaignMonth || undefined,
         deal_value: dealValue ? parseFloat(dealValue) : undefined,
         content_urls: contentUrls.filter(url => url.url.trim() !== ''),
       });
@@ -122,9 +136,19 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
               onChange={(e) => setBrandName(e.target.value)}
             />
           </div>
+
+          <ClientSelect value={selectedClient} onValueChange={setSelectedClient} />
+
           <div className="space-y-2">
             <CreatorSelect value={selectedCreator} onValueChange={setSelectedCreator} />
           </div>
+
+          <MasterCampaignSelect 
+            value={selectedMasterCampaign} 
+            onValueChange={setSelectedMasterCampaign}
+            currentCampaignId={campaign?.id}
+          />
+
           <div className="space-y-2">
             <Label htmlFor="date">Campaign Date</Label>
             <Input 
@@ -134,6 +158,17 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
               onChange={(e) => setCampaignDate(e.target.value)}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="month">Campaign Month (Optional)</Label>
+            <Input 
+              id="month" 
+              type="month" 
+              value={campaignMonth}
+              onChange={(e) => setCampaignMonth(e.target.value)}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="deal">Deal Value (Optional)</Label>
             <Input 
