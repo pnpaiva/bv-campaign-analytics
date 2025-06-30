@@ -32,7 +32,14 @@ export const useCreators = () => {
         .order('name');
 
       if (error) throw error;
-      setCreators(data || []);
+      
+      // Type cast the response to match our Creator interface
+      const typedCreators: Creator[] = (data || []).map(creator => ({
+        ...creator,
+        platform_handles: (creator.platform_handles as Record<string, string>) || {}
+      }));
+      
+      setCreators(typedCreators);
     } catch (error) {
       console.error('Error fetching creators:', error);
       toast({
@@ -68,13 +75,19 @@ export const useCreators = () => {
 
       if (error) throw error;
       
-      setCreators(prev => [...prev, data]);
+      // Type cast the response to match our Creator interface
+      const typedCreator: Creator = {
+        ...data,
+        platform_handles: (data.platform_handles as Record<string, string>) || {}
+      };
+      
+      setCreators(prev => [...prev, typedCreator]);
       toast({
         title: "Success",
         description: "Creator added successfully",
       });
       
-      return data;
+      return typedCreator;
     } catch (error) {
       console.error('Error creating creator:', error);
       toast({

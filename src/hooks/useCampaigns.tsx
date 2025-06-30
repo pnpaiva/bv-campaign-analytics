@@ -47,7 +47,18 @@ export const useCampaigns = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCampaigns(data || []);
+      
+      // Type cast the response to match our Campaign interface
+      const typedCampaigns: Campaign[] = (data || []).map(campaign => ({
+        ...campaign,
+        status: campaign.status as 'analyzing' | 'completed' | 'draft',
+        creators: campaign.creators ? {
+          name: campaign.creators.name,
+          platform_handles: (campaign.creators.platform_handles as Record<string, string>) || {}
+        } : undefined
+      }));
+      
+      setCampaigns(typedCampaigns);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
       toast({
@@ -93,13 +104,23 @@ export const useCampaigns = () => {
 
       if (error) throw error;
       
-      setCampaigns(prev => [data, ...prev]);
+      // Type cast the response to match our Campaign interface
+      const typedCampaign: Campaign = {
+        ...data,
+        status: data.status as 'analyzing' | 'completed' | 'draft',
+        creators: data.creators ? {
+          name: data.creators.name,
+          platform_handles: (data.creators.platform_handles as Record<string, string>) || {}
+        } : undefined
+      };
+      
+      setCampaigns(prev => [typedCampaign, ...prev]);
       toast({
         title: "Success",
         description: "Campaign created successfully",
       });
       
-      return data;
+      return typedCampaign;
     } catch (error) {
       console.error('Error creating campaign:', error);
       toast({
