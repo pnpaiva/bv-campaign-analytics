@@ -9,6 +9,7 @@ import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 import { DashboardFilters } from "@/components/DashboardFilters";
+import { DashboardFilters as DashboardFiltersType } from "@/hooks/useDashboardAnalytics";
 
 export default function Campaigns() {
   const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics } = useCampaigns();
@@ -51,6 +52,43 @@ export default function Campaigns() {
     setDetailDialogOpen(true);
   };
 
+  const handleFiltersChange = (filters: DashboardFiltersType) => {
+    // Filter campaigns based on the applied filters
+    let filtered = campaigns;
+
+    if (filters.startDate) {
+      filtered = filtered.filter(campaign => 
+        new Date(campaign.campaign_date) >= new Date(filters.startDate!)
+      );
+    }
+
+    if (filters.endDate) {
+      filtered = filtered.filter(campaign => 
+        new Date(campaign.campaign_date) <= new Date(filters.endDate!)
+      );
+    }
+
+    if (filters.creatorIds && filters.creatorIds.length > 0) {
+      filtered = filtered.filter(campaign => 
+        filters.creatorIds!.includes(campaign.creator_id)
+      );
+    }
+
+    if (filters.clientIds && filters.clientIds.length > 0) {
+      filtered = filtered.filter(campaign => 
+        campaign.client_id && filters.clientIds!.includes(campaign.client_id)
+      );
+    }
+
+    if (filters.campaignIds && filters.campaignIds.length > 0) {
+      filtered = filtered.filter(campaign => 
+        filters.campaignIds!.includes(campaign.id)
+      );
+    }
+
+    setFilteredCampaigns(filtered);
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
@@ -91,8 +129,8 @@ export default function Campaigns() {
 
         <div className="mb-6">
           <DashboardFilters 
-            campaigns={campaigns}
-            onFilteredCampaignsChange={setFilteredCampaigns}
+            onFiltersChange={handleFiltersChange}
+            loading={loading}
           />
         </div>
 

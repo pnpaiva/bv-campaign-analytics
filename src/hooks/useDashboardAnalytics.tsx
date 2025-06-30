@@ -68,7 +68,19 @@ export const useDashboardAnalytics = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setMetrics(data[0]);
+        const rawData = data[0];
+        // Cast Json types to Record<string, any>
+        const processedMetrics: DashboardMetrics = {
+          total_campaigns: rawData.total_campaigns,
+          total_views: rawData.total_views,
+          total_engagement: rawData.total_engagement,
+          avg_engagement_rate: rawData.avg_engagement_rate,
+          total_deal_value: rawData.total_deal_value,
+          platform_breakdown: rawData.platform_breakdown as Record<string, any>,
+          creator_performance: rawData.creator_performance as Record<string, any>,
+          monthly_trends: rawData.monthly_trends as Record<string, any>,
+        };
+        setMetrics(processedMetrics);
       }
     } catch (error) {
       console.error('Error fetching dashboard metrics:', error);
