@@ -1,10 +1,23 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, MessageSquare, TrendingUp, DollarSign, Calendar, Users } from "lucide-react";
-import { useCampaigns } from "@/hooks/useCampaigns";
+import { Eye, MessageSquare, TrendingUp, DollarSign } from "lucide-react";
+import { useDashboardAnalytics, DashboardFilters as DashboardFiltersType } from "@/hooks/useDashboardAnalytics";
+import { DashboardFilters } from "@/components/DashboardFilters";
+import { DashboardCharts } from "@/components/DashboardCharts";
 
 export default function Dashboard() {
-  const { campaigns, loading } = useCampaigns();
+  const {
+    metrics,
+    trends,
+    topContent,
+    loading,
+    refreshData,
+  } = useDashboardAnalytics();
+
+  const handleFiltersChange = (filters: DashboardFiltersType) => {
+    console.log('Applying filters:', filters);
+    refreshData(filters);
+  };
 
   if (loading) {
     return (
@@ -19,34 +32,16 @@ export default function Dashboard() {
     );
   }
 
-  // Calculate totals
-  const totalViews = campaigns.reduce((sum, campaign) => sum + (campaign.total_views || 0), 0);
-  const totalEngagement = campaigns.reduce((sum, campaign) => sum + (campaign.total_engagement || 0), 0);
-  const totalDealValue = campaigns.reduce((sum, campaign) => sum + (campaign.deal_value || 0), 0);
-  const avgEngagementRate = campaigns.length > 0 
-    ? campaigns.reduce((sum, campaign) => sum + (campaign.engagement_rate || 0), 0) / campaigns.length 
-    : 0;
-
-  // Recent campaigns (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const recentCampaigns = campaigns.filter(campaign => 
-    new Date(campaign.campaign_date) >= thirtyDaysAgo
-  );
-
-  // Status breakdown
-  const statusCounts = campaigns.reduce((acc, campaign) => {
-    acc[campaign.status] = (acc[campaign.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Overview of your influencer campaigns performance</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
+          <p className="text-gray-600">Comprehensive overview of your influencer campaigns performance</p>
         </div>
+
+        {/* Filters */}
+        <DashboardFilters onFiltersChange={handleFiltersChange} loading={loading} />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -56,9 +51,9 @@ export default function Dashboard() {
               <Eye className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalViews.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{metrics?.total_views?.toLocaleString() || 0}</div>
               <p className="text-xs text-muted-foreground">
-                Across {campaigns.length} campaigns
+                Across {metrics?.total_campaigns || 0} campaigns
               </p>
             </CardContent>
           </Card>
@@ -69,7 +64,7 @@ export default function Dashboard() {
               <MessageSquare className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEngagement.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{metrics?.total_engagement?.toLocaleString() || 0}</div>
               <p className="text-xs text-muted-foreground">
                 Likes, comments, shares
               </p>
@@ -82,9 +77,9 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgEngagementRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">{Number(metrics?.avg_engagement_rate || 0).toFixed(1)}%</div>
               <p className="text-xs text-muted-foreground">
-                Average across all campaigns
+                Average across all content
               </p>
             </CardContent>
           </Card>
@@ -95,7 +90,7 @@ export default function Dashboard() {
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalDealValue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">${Number(metrics?.total_deal_value || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Total campaign value
               </p>
@@ -103,31 +98,36 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Recent Activity & Status Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Charts and Analytics */}
+        <DashboardCharts 
+          metrics={metrics}
+          trends={trends}
+          topContent={topContent}
+        />
+
+        {/* Quick Insights */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Campaigns from the last 30 days</CardDescription>
+              <CardTitle>Platform Insights</CardTitle>
+              <CardDescription>Performance breakdown by platform</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentCampaigns.slice(0, 5).map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{campaign.brand_name}</p>
-                      <p className="text-sm text-gray-600">{campaign.creators?.name}</p>
+              <div className="space-y-3">
+                {metrics?.platform_breakdown && Object.entries(metrics.platform_breakdown).map(([platform, data]: [string, any]) => (
+                  <div key={platform} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="capitalize font-medium">{platform}</span>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{campaign.total_views?.toLocaleString()} views</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(campaign.campaign_date).toLocaleDateString()}
-                      </p>
+                      <div className="font-semibold">{data.views?.toLocaleString() || 0} views</div>
+                      <div className="text-sm text-gray-500">{data.campaigns || 0} campaigns</div>
                     </div>
                   </div>
                 ))}
-                {recentCampaigns.length === 0 && (
-                  <p className="text-gray-500 text-center py-4">No recent campaigns</p>
+                {(!metrics?.platform_breakdown || Object.keys(metrics.platform_breakdown).length === 0) && (
+                  <p className="text-gray-500 text-center py-4">No platform data available</p>
                 )}
               </div>
             </CardContent>
@@ -135,65 +135,32 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Campaign Status</CardTitle>
-              <CardDescription>Breakdown by status</CardDescription>
+              <CardTitle>Creator Insights</CardTitle>
+              <CardDescription>Top performing creators</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {Object.entries(statusCounts).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        status === 'completed' ? 'bg-green-500' :
-                        status === 'analyzing' ? 'bg-yellow-500' :
-                        'bg-gray-500'
-                      }`} />
-                      <span className="capitalize">{status}</span>
+                {metrics?.creator_performance && Object.entries(metrics.creator_performance)
+                  .slice(0, 5)
+                  .map(([creator, data]: [string, any]) => (
+                    <div key={creator} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                        <span className="font-medium">{creator}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{data.views?.toLocaleString() || 0} views</div>
+                        <div className="text-sm text-gray-500">{Number(data.avg_engagement_rate || 0).toFixed(1)}% rate</div>
+                      </div>
                     </div>
-                    <span className="font-medium">{count}</span>
-                  </div>
-                ))}
-                {Object.keys(statusCounts).length === 0 && (
-                  <p className="text-gray-500 text-center py-4">No campaigns yet</p>
+                  ))}
+                {(!metrics?.creator_performance || Object.keys(metrics.creator_performance).length === 0) && (
+                  <p className="text-gray-500 text-center py-4">No creator data available</p>
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Top Performing Campaigns */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Performing Campaigns</CardTitle>
-            <CardDescription>Campaigns with highest engagement rates</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {campaigns
-                .sort((a, b) => (b.engagement_rate || 0) - (a.engagement_rate || 0))
-                .slice(0, 5)
-                .map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{campaign.brand_name}</p>
-                      <p className="text-sm text-gray-600">{campaign.creators?.name}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-purple-600">
-                        {campaign.engagement_rate?.toFixed(1)}%
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {campaign.total_views?.toLocaleString()} views
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              {campaigns.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No campaigns to display</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

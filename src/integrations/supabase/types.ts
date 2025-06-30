@@ -69,6 +69,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "analytics_data_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_analytics"
+            referencedColumns: ["campaign_id"]
+          },
         ]
       }
       analytics_jobs: {
@@ -112,6 +119,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_analytics"
+            referencedColumns: ["campaign_id"]
           },
         ]
       }
@@ -252,6 +266,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "campaigns_master_campaign_id_fkey"
+            columns: ["master_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_analytics"
+            referencedColumns: ["campaign_id"]
+          },
         ]
       }
       clients: {
@@ -310,12 +331,106 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      dashboard_analytics: {
+        Row: {
+          analytics_id: string | null
+          brand_name: string | null
+          campaign_date: string | null
+          campaign_engagement_rate: number | null
+          campaign_id: string | null
+          campaign_month: string | null
+          campaign_total_engagement: number | null
+          campaign_total_views: number | null
+          client_id: string | null
+          client_name: string | null
+          client_name_full: string | null
+          comments: number | null
+          content_engagement_rate: number | null
+          content_url: string | null
+          creator_id: string | null
+          creator_name: string | null
+          deal_value: number | null
+          engagement: number | null
+          fetched_at: string | null
+          likes: number | null
+          platform: string | null
+          platform_handles: Json | null
+          sentiment_label: string | null
+          sentiment_score: number | null
+          shares: number | null
+          status: string | null
+          views: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       cleanup_expired_cache: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_campaign_trends: {
+        Args: {
+          start_date?: string
+          end_date?: string
+          group_by_period?: string
+        }
+        Returns: {
+          period: string
+          total_views: number
+          total_engagement: number
+          campaign_count: number
+          avg_engagement_rate: number
+        }[]
+      }
+      get_dashboard_metrics: {
+        Args: {
+          start_date?: string
+          end_date?: string
+          creator_ids?: string[]
+          client_ids?: string[]
+          campaign_ids?: string[]
+          platforms?: string[]
+        }
+        Returns: {
+          total_campaigns: number
+          total_views: number
+          total_engagement: number
+          avg_engagement_rate: number
+          total_deal_value: number
+          platform_breakdown: Json
+          creator_performance: Json
+          monthly_trends: Json
+        }[]
+      }
+      get_top_content: {
+        Args: { limit_count?: number; order_by?: string }
+        Returns: {
+          campaign_id: string
+          brand_name: string
+          creator_name: string
+          platform: string
+          content_url: string
+          views: number
+          engagement: number
+          engagement_rate: number
+          campaign_date: string
+        }[]
       }
       update_campaign_totals: {
         Args: { campaign_uuid: string }
