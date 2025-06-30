@@ -97,6 +97,7 @@ export const useCampaigns = () => {
           campaign_date: campaignData.campaign_date,
           deal_value: campaignData.deal_value,
           user_id: user.id,
+          status: 'analyzing', // Set to analyzing immediately
         })
         .select(`
           *,
@@ -121,13 +122,35 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
-      // If content URLs are provided, fetch analytics for each platform
+      // If content URLs are provided, create analytics data entries first, then trigger jobs
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
         console.log('Processing content URLs:', campaignData.content_urls);
         
         for (const contentUrl of campaignData.content_urls) {
           if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
             try {
+              console.log('Creating analytics entry for:', contentUrl.url);
+              
+              // First create an analytics data entry with the URL
+              const { error: analyticsError } = await supabase
+                .from('analytics_data')
+                .insert({
+                  campaign_id: typedCampaign.id,
+                  platform: contentUrl.platform.toLowerCase(),
+                  content_url: contentUrl.url,
+                  views: 0,
+                  engagement: 0,
+                  likes: 0,
+                  comments: 0,
+                  engagement_rate: 0,
+                  fetched_at: new Date().toISOString()
+                });
+
+              if (analyticsError) {
+                console.error('Failed to create analytics entry:', analyticsError);
+              }
+
+              // Then fetch real analytics data
               console.log('Fetching YouTube analytics for:', contentUrl.url);
               await fetchYouTubeAnalytics(typedCampaign.id, contentUrl.url);
             } catch (analyticsError) {
@@ -136,10 +159,31 @@ export const useCampaigns = () => {
           }
         }
 
+        // Create analytics jobs for automated processing
+        for (const contentUrl of campaignData.content_urls) {
+          if (contentUrl.url.trim()) {
+            try {
+              const { error: jobError } = await supabase
+                .from('analytics_jobs')
+                .insert({
+                  campaign_id: typedCampaign.id,
+                  platform: contentUrl.platform.toLowerCase(),
+                  status: 'pending'
+                });
+
+              if (jobError) {
+                console.error('Failed to create analytics job:', jobError);
+              }
+            } catch (jobError) {
+              console.error('Job creation failed:', jobError);
+            }
+          }
+        }
+
         // Refresh campaigns after a short delay to get updated analytics
         setTimeout(async () => {
           await fetchCampaigns();
-        }, 2000);
+        }, 3000);
 
         toast({
           title: "Success",

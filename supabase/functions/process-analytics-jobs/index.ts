@@ -21,7 +21,7 @@ serve(async (req) => {
 
     console.log('Starting analytics job processing...');
 
-    // Get pending jobs
+    // Get pending jobs with campaign data
     const { data: pendingJobs, error: jobsError } = await supabaseClient
       .from('analytics_jobs')
       .select(`
@@ -29,9 +29,7 @@ serve(async (req) => {
         campaigns!inner(
           id,
           user_id,
-          creators!inner(
-            platform_handles
-          )
+          brand_name
         )
       `)
       .eq('status', 'pending')
@@ -66,83 +64,86 @@ serve(async (req) => {
         const platform = job.platform;
         const campaignId = job.campaign_id;
         
-        // Get platform handles from creator
-        const platformHandles = job.campaigns.creators.platform_handles;
-        
-        if (!platformHandles || !platformHandles[platform]) {
-          throw new Error(`No ${platform} handle found for this campaign`);
-        }
+        console.log(`Processing job ${job.id} for campaign ${campaignId} on platform ${platform}`);
 
-        const handle = platformHandles[platform];
+        // Get existing analytics data to find content URLs
+        const { data: existingAnalytics } = await supabaseClient
+          .from('analytics_data')
+          .select('content_url')
+          .eq('campaign_id', campaignId)
+          .eq('platform', platform)
+          .limit(1);
+
         let contentUrl = '';
 
-        // Generate content URL based on platform
-        switch (platform) {
-          case 'youtube':
-            // For YouTube, we need the actual video URL
-            // This would typically come from the campaign data
-            contentUrl = `https://youtube.com/watch?v=${handle}`;
-            break;
-          case 'instagram':
-            contentUrl = `https://instagram.com/p/${handle}`;
-            break;
-          case 'tiktok':
-            contentUrl = `https://tiktok.com/@${handle}`;
-            break;
+        if (existingAnalytics && existingAnalytics.length > 0) {
+          // Use existing content URL from analytics data
+          contentUrl = existingAnalytics[0].content_url;
+          console.log(`Found existing content URL: ${contentUrl}`);
+        } else {
+          // For YouTube, we'll look for any YouTube URLs in the system
+          // This is a fallback - ideally URLs should be stored when creating campaigns
+          console.log(`No existing content URL found for campaign ${campaignId}`);
+          
+          // Mark job as failed if no content URL found
+          await supabaseClient
+            .from('analytics_jobs')
+            .update({
+              status: 'failed',
+              error_message: 'No content URL found for analytics processing',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
+          
+          continue;
         }
 
-        // Call the appropriate analytics function
-        if (platform === 'youtube') {
-          const response = await fetch(
-            `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-youtube-analytics`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                campaign_id: campaignId,
-                video_url: contentUrl
-              })
+        // Call the appropriate analytics function based on platform
+        if (platform === 'youtube' && contentUrl) {
+          console.log(`Fetching YouTube analytics for URL: ${contentUrl}`);
+          
+          const response = await supabaseClient.functions.invoke('fetch-youtube-analytics', {
+            body: {
+              campaign_id: campaignId,
+              video_url: contentUrl
             }
-          );
+          });
 
-          if (!response.ok) {
-            throw new Error(`Analytics fetch failed: ${response.statusText}`);
+          if (response.error) {
+            throw new Error(`Analytics fetch failed: ${response.error.message}`);
           }
+
+          console.log(`Successfully fetched analytics for ${contentUrl}`);
 
           // Fetch comments for sentiment analysis
           const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
           const videoId = extractVideoId(contentUrl);
           
           if (videoId && youtubeApiKey) {
-            const commentsResponse = await fetch(
-              `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&key=${youtubeApiKey}&maxResults=50`
-            );
-
-            if (commentsResponse.ok) {
-              const commentsData = await commentsResponse.json();
-              const comments = commentsData.items?.map((item: any) => 
-                item.snippet.topLevelComment.snippet.textDisplay
-              ) || [];
-
-              // Run sentiment analysis
-              await fetch(
-                `${Deno.env.get('SUPABASE_URL')}/functions/v1/sentiment-analysis`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    comments,
-                    campaign_id: campaignId,
-                    content_url: contentUrl
-                  })
-                }
+            try {
+              const commentsResponse = await fetch(
+                `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&key=${youtubeApiKey}&maxResults=50`
               );
+
+              if (commentsResponse.ok) {
+                const commentsData = await commentsResponse.json();
+                const comments = commentsData.items?.map((item: any) => 
+                  item.snippet.topLevelComment.snippet.textDisplay
+                ) || [];
+
+                if (comments.length > 0) {
+                  // Run sentiment analysis
+                  await supabaseClient.functions.invoke('sentiment-analysis', {
+                    body: {
+                      comments,
+                      campaign_id: campaignId,
+                      content_url: contentUrl
+                    }
+                  });
+                }
+              }
+            } catch (sentimentError) {
+              console.log('Sentiment analysis failed, but continuing with main analytics:', sentimentError.message);
             }
           }
         }
@@ -155,6 +156,15 @@ serve(async (req) => {
             completed_at: new Date().toISOString()
           })
           .eq('id', job.id);
+
+        // Update campaign status to completed
+        await supabaseClient
+          .from('campaigns')
+          .update({
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', campaignId);
 
         processedCount++;
         console.log(`Completed job ${job.id} for campaign ${campaignId}`);
