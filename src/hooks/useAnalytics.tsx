@@ -38,6 +38,44 @@ export const useAnalytics = () => {
     }
   };
 
+  const fetchYouTubeAnalytics = async (campaignId: string, videoUrl: string) => {
+    setLoading(true);
+    try {
+      console.log('Calling YouTube analytics function for campaign:', campaignId, 'video:', videoUrl);
+      
+      const { data, error } = await supabase.functions.invoke('fetch-youtube-analytics', {
+        body: { 
+          campaign_id: campaignId,
+          video_url: videoUrl
+        }
+      });
+
+      if (error) {
+        console.error('YouTube analytics function error:', error);
+        throw error;
+      }
+
+      console.log('YouTube analytics response:', data);
+
+      toast({
+        title: "Success",
+        description: "YouTube analytics updated successfully",
+      });
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching YouTube analytics:', error);
+      toast({
+        title: "Error",
+        description: `Failed to fetch YouTube analytics: ${error.message}`,
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchAnalyticsData = async (campaignId: string) => {
     try {
       const { data, error } = await supabase
@@ -78,6 +116,7 @@ export const useAnalytics = () => {
   return {
     loading,
     triggerAnalytics,
+    fetchYouTubeAnalytics,
     fetchAnalyticsData,
     getAnalyticsJobs,
   };

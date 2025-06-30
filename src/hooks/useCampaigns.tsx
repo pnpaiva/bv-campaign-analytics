@@ -27,7 +27,7 @@ export const useCampaigns = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { triggerAnalytics } = useAnalytics();
+  const { triggerAnalytics, fetchYouTubeAnalytics } = useAnalytics();
 
   const fetchCampaigns = async () => {
     if (!user) {
@@ -121,23 +121,30 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
-      // If content URLs are provided, trigger analytics for each platform
+      // If content URLs are provided, fetch analytics for each platform
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
-        const platforms = campaignData.content_urls.map(url => url.platform.toLowerCase());
-        try {
-          await triggerAnalytics(typedCampaign.id, platforms);
-          toast({
-            title: "Success",
-            description: "Campaign created and analytics job started",
-          });
-        } catch (analyticsError) {
-          console.error('Analytics trigger failed:', analyticsError);
-          toast({
-            title: "Campaign Created",
-            description: "Campaign created but analytics fetch failed. You can retry manually.",
-            variant: "destructive",
-          });
+        console.log('Processing content URLs:', campaignData.content_urls);
+        
+        for (const contentUrl of campaignData.content_urls) {
+          if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
+            try {
+              console.log('Fetching YouTube analytics for:', contentUrl.url);
+              await fetchYouTubeAnalytics(typedCampaign.id, contentUrl.url);
+            } catch (analyticsError) {
+              console.error('Analytics fetch failed for URL:', contentUrl.url, analyticsError);
+            }
+          }
         }
+
+        // Refresh campaigns after a short delay to get updated analytics
+        setTimeout(async () => {
+          await fetchCampaigns();
+        }, 2000);
+
+        toast({
+          title: "Success",
+          description: "Campaign created and analytics are being fetched",
+        });
       } else {
         toast({
           title: "Success",
@@ -157,9 +164,16 @@ export const useCampaigns = () => {
     }
   };
 
-  const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube']) => {
+  const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube'], videoUrl?: string) => {
     try {
-      await triggerAnalytics(campaignId, platforms);
+      // If we have a specific YouTube URL, use the direct YouTube analytics function
+      if (videoUrl && platforms.includes('youtube')) {
+        console.log('Triggering YouTube analytics for specific URL:', videoUrl);
+        await fetchYouTubeAnalytics(campaignId, videoUrl);
+      } else {
+        // Use the general analytics trigger
+        await triggerAnalytics(campaignId, platforms);
+      }
       
       // Add a small delay to allow backend processing
       setTimeout(async () => {
