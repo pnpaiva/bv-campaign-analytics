@@ -25,24 +25,7 @@ serve(async (req) => {
     console.log('Direct analytics fetch for campaign:', campaign_id, 'video:', video_url);
 
     if (!youtubeApiKey) {
-      console.log('YouTube API key not found');
-      return new Response(
-        JSON.stringify({ 
-          error: 'YouTube API key not configured',
-          mock_data: {
-            views: 217000,
-            likes: 18000,
-            comments: 557,
-            engagement: 18557,
-            engagement_rate: 8.55,
-            title: 'Mock Data - API Key Missing'
-          }
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      throw new Error('YouTube API key not configured');
     }
 
     // Extract video ID from URL
@@ -58,64 +41,17 @@ serve(async (req) => {
     const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoId}&key=${youtubeApiKey}`;
     
     const response = await fetch(youtubeUrl);
-    const responseText = await response.text();
     
     console.log('YouTube API response status:', response.status);
-    console.log('YouTube API response:', responseText);
 
     if (!response.ok) {
-      console.error('YouTube API error:', response.status, responseText);
-      
-      // Return mock data if API fails
-      const mockData = {
-        views: 217000,
-        likes: 18000,
-        comments: 557,
-        engagement: 18557,
-        engagement_rate: 8.55,
-        title: 'Mock Data - API Error'
-      };
-
-      // Store mock data in database
-      await supabaseClient
-        .from('analytics_data')
-        .upsert({
-          campaign_id,
-          platform: 'youtube',
-          content_url: video_url,
-          views: mockData.views,
-          engagement: mockData.engagement,
-          likes: mockData.likes,
-          comments: mockData.comments,
-          engagement_rate: mockData.engagement_rate,
-          fetched_at: new Date().toISOString()
-        });
-
-      // Update campaign totals
-      await supabaseClient.rpc('update_campaign_totals', {
-        campaign_uuid: campaign_id
-      });
-
-      // Update campaign status
-      await supabaseClient
-        .from('campaigns')
-        .update({
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', campaign_id);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          data: mockData,
-          note: 'Using mock data due to API error'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const errorText = await response.text();
+      console.error('YouTube API error:', response.status, errorText);
+      throw new Error(`YouTube API error: ${response.status} - ${errorText}`);
     }
 
-    const data = JSON.parse(responseText);
+    const data = await response.json();
+    console.log('YouTube API response:', JSON.stringify(data, null, 2));
     
     if (!data.items || data.items.length === 0) {
       throw new Error('Video not found on YouTube');
@@ -139,6 +75,7 @@ serve(async (req) => {
       : 0;
 
     console.log('Real analytics data:', analyticsData);
+    console.log('Calculated engagement rate:', engagementRate);
 
     // Store analytics data
     const { error: insertError } = await supabaseClient
@@ -160,6 +97,8 @@ serve(async (req) => {
       throw insertError;
     }
 
+    console.log('Successfully stored analytics data');
+
     // Update campaign totals
     const { error: updateError } = await supabaseClient.rpc('update_campaign_totals', {
       campaign_uuid: campaign_id
@@ -170,6 +109,8 @@ serve(async (req) => {
       throw updateError;
     }
 
+    console.log('Successfully updated campaign totals');
+
     // Update campaign status to completed
     await supabaseClient
       .from('campaigns')
@@ -178,6 +119,8 @@ serve(async (req) => {
         updated_at: new Date().toISOString()
       })
       .eq('id', campaign_id);
+
+    console.log('Campaign status updated to completed');
 
     return new Response(
       JSON.stringify({ 
