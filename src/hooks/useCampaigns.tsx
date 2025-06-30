@@ -10,7 +10,7 @@ export interface Campaign {
   brand_name: string;
   creator_id: string;
   campaign_date: string;
-  campaign_month?: string;
+  campaign_month?: string; // Changed to string to match database
   client_id?: string;
   client_name?: string;
   master_campaign_id?: string;
@@ -90,7 +90,7 @@ export const useCampaigns = () => {
     brand_name: string;
     creator_id: string;
     campaign_date: string;
-    campaign_month?: string;
+    campaign_month?: string; // Changed to string
     client_id?: string;
     master_campaign_id?: string;
     deal_value?: number;
@@ -249,7 +249,7 @@ export const useCampaigns = () => {
     brand_name?: string;
     creator_id?: string;
     campaign_date?: string;
-    campaign_month?: string;
+    campaign_month?: string; // Changed to string
     client_id?: string;
     master_campaign_id?: string;
     deal_value?: number;

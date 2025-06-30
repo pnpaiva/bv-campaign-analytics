@@ -120,7 +120,7 @@ export default function Campaigns() {
                     {new Date(campaign.campaign_date).toLocaleDateString()}
                     {campaign.campaign_month && (
                       <span className="text-xs">
-                        (Month: {new Date(campaign.campaign_month).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })})
+                        (Month: {campaign.campaign_month})
                       </span>
                     )}
                   </div>
