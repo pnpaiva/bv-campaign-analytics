@@ -9,7 +9,7 @@ export interface Campaign {
   brand_name: string;
   creator_id: string;
   campaign_date: string;
-  campaign_month?: string; // Changed to string to match database
+  campaign_month?: string;
   client_id?: string;
   client_name?: string;
   master_campaign_id?: string;
@@ -170,7 +170,7 @@ export const useCampaigns = () => {
     brand_name: string;
     creator_id: string;
     campaign_date: string;
-    campaign_month?: string; // Changed to string
+    campaign_month?: string;
     client_id?: string;
     master_campaign_id?: string;
     deal_value?: number;
@@ -189,6 +189,7 @@ export const useCampaigns = () => {
     console.log('Campaign data:', campaignData);
 
     try {
+      // Create the campaign first
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
@@ -216,6 +217,8 @@ export const useCampaigns = () => {
 
       if (error) throw error;
       
+      console.log('Campaign created successfully:', data);
+      
       const typedCampaign: Campaign = {
         ...data,
         status: data.status as 'analyzing' | 'completed' | 'draft',
@@ -230,7 +233,7 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
-      // Process content URLs for analytics
+      // Process content URLs for analytics if provided
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
         console.log('Processing content URLs for analytics:', campaignData.content_urls);
         
@@ -268,7 +271,7 @@ export const useCampaigns = () => {
       } else {
         toast({
           title: "Success",
-          description: "Campaign created successfully",
+          description: "Campaign created successfully - add YouTube URLs to fetch analytics",
         });
       }
       
@@ -277,7 +280,7 @@ export const useCampaigns = () => {
       console.error('Error creating campaign:', error);
       toast({
         title: "Error",
-        description: "Failed to create campaign",
+        description: `Failed to create campaign: ${error.message}`,
         variant: "destructive",
       });
       return null;
@@ -322,7 +325,7 @@ export const useCampaigns = () => {
             throw new Error('No YouTube URLs found to refresh');
           }
         } else {
-          throw new Error('No analytics data found for this campaign');
+          throw new Error('No analytics data found for this campaign. Please add YouTube URLs first.');
         }
       }
       
@@ -349,7 +352,7 @@ export const useCampaigns = () => {
     brand_name?: string;
     creator_id?: string;
     campaign_date?: string;
-    campaign_month?: string; // Changed to string
+    campaign_month?: string;
     client_id?: string;
     master_campaign_id?: string;
     deal_value?: number;

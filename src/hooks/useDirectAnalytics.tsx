@@ -24,7 +24,7 @@ export const useDirectAnalytics = () => {
       // Validate YouTube URL format
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       if (!youtubeRegex.test(cleanUrl)) {
-        throw new Error('Invalid YouTube URL format');
+        throw new Error('Invalid YouTube URL format. Please provide a valid YouTube URL.');
       }
 
       console.log('Calling direct YouTube analytics function...');
@@ -41,19 +41,19 @@ export const useDirectAnalytics = () => {
 
       if (error) {
         console.error('Supabase function error:', error);
-        throw error;
+        throw new Error(`Function error: ${error.message}`);
       }
 
       if (!data || !data.success) {
         console.error('Function returned unsuccessful response:', data);
-        throw new Error(data?.error || 'Analytics fetch failed');
+        throw new Error(data?.error || 'Analytics fetch failed - function returned unsuccessful response');
       }
 
       console.log('Analytics data received:', data.data);
 
       toast({
         title: "Success",
-        description: "YouTube analytics fetched successfully",
+        description: `YouTube analytics fetched: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
       });
 
       return data;
@@ -64,8 +64,8 @@ export const useDirectAnalytics = () => {
       console.error('Full error:', error);
       
       toast({
-        title: "Error",
-        description: `Analytics fetch failed: ${error.message}`,
+        title: "Analytics Error",
+        description: `Failed to fetch analytics: ${error.message}`,
         variant: "destructive",
       });
       throw error;
