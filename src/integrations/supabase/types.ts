@@ -411,14 +411,24 @@ export type Database = {
         }[]
       }
       get_dashboard_metrics: {
-        Args: {
-          start_date?: string
-          end_date?: string
-          creator_ids?: string[]
-          client_ids?: string[]
-          campaign_ids?: string[]
-          platforms?: string[]
-        }
+        Args:
+          | {
+              start_date?: string
+              end_date?: string
+              creator_ids?: string[]
+              client_ids?: string[]
+              campaign_ids?: string[]
+              platforms?: string[]
+            }
+          | {
+              start_date?: string
+              end_date?: string
+              creator_ids?: string[]
+              client_ids?: string[]
+              campaign_ids?: string[]
+              platforms?: string[]
+              master_campaigns?: string[]
+            }
         Returns: {
           total_campaigns: number
           total_views: number
