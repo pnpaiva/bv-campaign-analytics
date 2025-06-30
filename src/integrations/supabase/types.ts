@@ -9,7 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      campaigns: {
+        Row: {
+          brand_name: string
+          campaign_date: string
+          created_at: string
+          creator_id: string
+          deal_value: number | null
+          engagement_rate: number | null
+          id: string
+          status: string | null
+          total_engagement: number | null
+          total_views: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_name: string
+          campaign_date: string
+          created_at?: string
+          creator_id: string
+          deal_value?: number | null
+          engagement_rate?: number | null
+          id?: string
+          status?: string | null
+          total_engagement?: number | null
+          total_views?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_name?: string
+          campaign_date?: string
+          created_at?: string
+          creator_id?: string
+          deal_value?: number | null
+          engagement_rate?: number | null
+          id?: string
+          status?: string | null
+          total_engagement?: number | null
+          total_views?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creators: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          platform_handles: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          platform_handles?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          platform_handles?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

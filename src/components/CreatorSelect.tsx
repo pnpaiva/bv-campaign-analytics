@@ -29,8 +29,6 @@ export const CreatorSelect = ({ value, onValueChange }: CreatorSelectProps) => {
     }
   };
 
-  const selectedCreator = creators.find(creator => creator.id === value);
-
   return (
     <div className="space-y-2">
       <Label>Creator</Label>
