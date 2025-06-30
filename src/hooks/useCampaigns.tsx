@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -132,6 +131,107 @@ export const useCampaigns = () => {
     }
   };
 
+  const updateCampaign = async (campaignId: string, campaignData: {
+    brand_name?: string;
+    creator_id?: string;
+    campaign_date?: string;
+    deal_value?: number;
+  }) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update campaigns",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update(campaignData)
+        .eq('id', campaignId)
+        .eq('user_id', user.id)
+        .select(`
+          *,
+          creators (
+            name,
+            platform_handles
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+      
+      // Type cast the response to match our Campaign interface
+      const typedCampaign: Campaign = {
+        ...data,
+        status: data.status as 'analyzing' | 'completed' | 'draft',
+        creators: data.creators ? {
+          name: data.creators.name,
+          platform_handles: (data.creators.platform_handles as Record<string, string>) || {}
+        } : undefined
+      };
+      
+      setCampaigns(prev => prev.map(campaign => 
+        campaign.id === campaignId ? typedCampaign : campaign
+      ));
+      
+      toast({
+        title: "Success",
+        description: "Campaign updated successfully",
+      });
+      
+      return typedCampaign;
+    } catch (error) {
+      console.error('Error updating campaign:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update campaign",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const deleteCampaign = async (campaignId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to delete campaigns",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setCampaigns(prev => prev.filter(campaign => campaign.id !== campaignId));
+      
+      toast({
+        title: "Success",
+        description: "Campaign deleted successfully",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete campaign",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const getTotalEngagement = (startDate?: string, endDate?: string, campaignIds?: string[]) => {
     let filteredCampaigns = campaigns;
 
@@ -161,6 +261,8 @@ export const useCampaigns = () => {
     campaigns,
     loading,
     createCampaign,
+    updateCampaign,
+    deleteCampaign,
     getTotalEngagement,
     refetch: fetchCampaigns,
   };

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,18 +5,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { Calendar, TrendingUp, Users, DollarSign, Youtube, Instagram, FileText, Download, Plus, Search } from "lucide-react";
+import { Calendar, TrendingUp, Users, DollarSign, Youtube, Instagram, FileText, Download, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { AuthPage } from "@/components/AuthPage";
 import { CreatorSelect } from "@/components/CreatorSelect";
 import { DashboardFilters } from "@/components/DashboardFilters";
+import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { campaigns, createCampaign, getTotalEngagement } = useCampaigns();
+  const { campaigns, createCampaign, updateCampaign, deleteCampaign, getTotalEngagement } = useCampaigns();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState("dashboard");
   const [dashboardFilters, setDashboardFilters] = useState<{
@@ -32,6 +42,10 @@ const Index = () => {
   const [campaignDate, setCampaignDate] = useState("");
   const [dealValue, setDealValue] = useState("");
   const [contentUrls, setContentUrls] = useState<{ platform: string; url: string }[]>([]);
+
+  // Edit/Delete state
+  const [editingCampaign, setEditingCampaign] = useState<any>(null);
+  const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
 
   // Sample data for demonstration
   const campaignData = [
@@ -86,6 +100,22 @@ const Index = () => {
       setDealValue("");
       setContentUrls([]);
       setCurrentView("campaigns");
+    }
+  };
+
+  const handleEditCampaign = async (campaignData: any) => {
+    if (editingCampaign) {
+      await updateCampaign(editingCampaign.id, campaignData);
+      setEditingCampaign(null);
+    }
+  };
+
+  const handleDeleteCampaign = async () => {
+    if (deletingCampaignId) {
+      const success = await deleteCampaign(deletingCampaignId);
+      if (success) {
+        setDeletingCampaignId(null);
+      }
     }
   };
 
@@ -352,14 +382,32 @@ const Index = () => {
                           <p className="font-medium">{campaign.deal_value ? `$${campaign.deal_value.toLocaleString()}` : 'N/A'}</p>
                           <p>Deal Value</p>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleGenerateReport(campaign.id)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Report
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setEditingCampaign(campaign)}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setDeletingCampaignId(campaign.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleGenerateReport(campaign.id)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Report
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -469,6 +517,32 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* Edit Campaign Dialog */}
+      <EditCampaignDialog
+        campaign={editingCampaign}
+        open={!!editingCampaign}
+        onOpenChange={(open) => !open && setEditingCampaign(null)}
+        onSave={handleEditCampaign}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingCampaignId} onOpenChange={(open) => !open && setDeletingCampaignId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this campaign? This action cannot be undone and will remove all associated analytics data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCampaign} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
