@@ -1,20 +1,20 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2 } from "lucide-react";
+import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 
 export default function Campaigns() {
-  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics } = useCampaigns();
+  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics, refreshAllCampaigns } = useCampaigns();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [refreshingAll, setRefreshingAll] = useState(false);
 
   const handleCreateCampaign = async (campaignData) => {
     await createCampaign(campaignData);
@@ -42,6 +42,12 @@ export default function Campaigns() {
   const handleRefreshAnalytics = async (campaign, e) => {
     e.stopPropagation();
     await triggerCampaignAnalytics(campaign.id);
+  };
+
+  const handleRefreshAll = async () => {
+    setRefreshingAll(true);
+    await refreshAllCampaigns();
+    setRefreshingAll(false);
   };
 
   const handleCardClick = (campaign) => {
@@ -81,10 +87,22 @@ export default function Campaigns() {
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Campaigns</h1>
             <p className="text-gray-600">Manage and track your influencer campaigns</p>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
-            <Plus className="h-5 w-5" />
-            Create Campaign
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleRefreshAll} 
+              variant="outline" 
+              size="lg" 
+              className="gap-2"
+              disabled={refreshingAll}
+            >
+              <RefreshCw className={`h-5 w-5 ${refreshingAll ? 'animate-spin' : ''}`} />
+              {refreshingAll ? 'Refreshing...' : 'Refresh All'}
+            </Button>
+            <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
+              <Plus className="h-5 w-5" />
+              Create Campaign
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

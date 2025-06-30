@@ -1,6 +1,5 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, MessageSquare, TrendingUp, DollarSign } from "lucide-react";
+import { Eye, MessageSquare, TrendingUp } from "lucide-react";
 import { useDashboardAnalytics, DashboardFilters as DashboardFiltersType } from "@/hooks/useDashboardAnalytics";
 import { DashboardFilters } from "@/components/DashboardFilters";
 import { DashboardCharts } from "@/components/DashboardCharts";
@@ -43,8 +42,8 @@ export default function Dashboard() {
         {/* Filters */}
         <DashboardFilters onFiltersChange={handleFiltersChange} loading={loading} />
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Key Metrics - Removed Total Deal Value */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Views</CardTitle>
@@ -80,19 +79,6 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">{Number(metrics?.avg_engagement_rate || 0).toFixed(1)}%</div>
               <p className="text-xs text-muted-foreground">
                 Average across all content
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Deal Value</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${Number(metrics?.total_deal_value || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                Total campaign value
               </p>
             </CardContent>
           </Card>

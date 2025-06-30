@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -83,6 +82,73 @@ export const useCampaigns = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshAllCampaigns = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to refresh campaigns",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "Refreshing campaigns",
+        description: "Fetching latest analytics for all campaigns...",
+      });
+
+      // Get all campaigns with analytics data
+      const { data: campaignsWithAnalytics, error } = await supabase
+        .from('campaigns')
+        .select(`
+          *,
+          analytics_data (content_url, platform)
+        `)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Process each campaign that has analytics data
+      for (const campaign of campaignsWithAnalytics || []) {
+        if (campaign.analytics_data && campaign.analytics_data.length > 0) {
+          for (const analytics of campaign.analytics_data) {
+            if (analytics.platform === 'youtube' && analytics.content_url) {
+              try {
+                await supabase.functions.invoke('direct-youtube-analytics', {
+                  body: {
+                    campaign_id: campaign.id,
+                    video_url: analytics.content_url
+                  }
+                });
+              } catch (error) {
+                console.error('Failed to refresh analytics for campaign:', campaign.id, error);
+              }
+            }
+          }
+        }
+      }
+
+      // Refresh the campaigns list after a delay to allow analytics processing
+      setTimeout(async () => {
+        await fetchCampaigns();
+      }, 2000);
+
+      toast({
+        title: "Success",
+        description: "All campaigns refreshed successfully",
+      });
+
+    } catch (error) {
+      console.error('Error refreshing all campaigns:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh campaigns",
+        variant: "destructive",
+      });
     }
   };
 
@@ -205,22 +271,45 @@ export const useCampaigns = () => {
 
   const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube'], videoUrl?: string) => {
     try {
+      // Get analytics data for this campaign to find video URLs
+      const { data: analyticsData, error } = await supabase
+        .from('analytics_data')
+        .select('content_url, platform')
+        .eq('campaign_id', campaignId);
+
+      if (error) throw error;
+
       if (videoUrl && platforms.includes('youtube')) {
         console.log('Triggering direct analytics for specific URL:', videoUrl);
         
-        // Use the new direct analytics function
-        const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
+        const { data, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
           body: {
             campaign_id: campaignId,
             video_url: videoUrl
           }
         });
 
-        if (error) {
-          throw error;
+        if (analyticsError) {
+          throw analyticsError;
         }
 
         console.log('Direct analytics result:', data);
+      } else if (analyticsData && analyticsData.length > 0) {
+        // Use existing URLs from analytics data
+        for (const data of analyticsData) {
+          if (data.platform === 'youtube' && data.content_url) {
+            const { error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
+              body: {
+                campaign_id: campaignId,
+                video_url: data.content_url
+              }
+            });
+
+            if (analyticsError) {
+              console.error('Failed to refresh analytics for URL:', data.content_url, analyticsError);
+            }
+          }
+        }
       } else {
         // Fallback to existing method
         await triggerAnalytics(campaignId, platforms);
@@ -233,10 +322,10 @@ export const useCampaigns = () => {
       
       toast({
         title: "Success",
-        description: "Analytics refreshed using direct method",
+        description: "Analytics refreshed successfully",
       });
     } catch (error) {
-      console.error('Error triggering direct analytics:', error);
+      console.error('Error triggering analytics:', error);
       toast({
         title: "Error",
         description: "Failed to refresh analytics",
@@ -466,6 +555,7 @@ export const useCampaigns = () => {
     deleteCampaign,
     getTotalEngagement,
     triggerCampaignAnalytics,
+    refreshAllCampaigns,
     refetch: fetchCampaigns,
   };
 };
