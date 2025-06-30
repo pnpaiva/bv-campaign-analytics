@@ -22,20 +22,21 @@ import { useCampaigns } from "@/hooks/useCampaigns";
 interface MasterCampaignSelectProps {
   value: string;
   onValueChange: (value: string) => void;
-  currentCampaignId?: string;
 }
 
-export const MasterCampaignSelect = ({ value, onValueChange, currentCampaignId }: MasterCampaignSelectProps) => {
+export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSelectProps) => {
   const [open, setOpen] = useState(false);
   const { campaigns, loading } = useCampaigns();
 
-  // Filter out the current campaign and only show campaigns that are not already children of other campaigns
-  const availableMasterCampaigns = campaigns.filter(campaign => 
-    campaign.id !== currentCampaignId && 
-    !campaign.master_campaign_id
-  );
-
-  const selectedCampaign = campaigns.find(campaign => campaign.id === value);
+  // Get unique master campaign names
+  const masterCampaignNames = campaigns
+    .filter(campaign => campaign.master_campaign_name)
+    .reduce((acc, campaign) => {
+      if (!acc.includes(campaign.master_campaign_name!)) {
+        acc.push(campaign.master_campaign_name!);
+      }
+      return acc;
+    }, [] as string[]);
 
   return (
     <div className="space-y-2">
@@ -48,16 +49,16 @@ export const MasterCampaignSelect = ({ value, onValueChange, currentCampaignId }
             aria-expanded={open}
             className="w-full justify-between"
           >
-            {selectedCampaign ? `${selectedCampaign.brand_name} - ${selectedCampaign.campaign_date}` : "Select master campaign..."}
+            {value || "Select master campaign..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0">
           <Command>
-            <CommandInput placeholder="Search campaigns..." />
+            <CommandInput placeholder="Search master campaigns..." />
             <CommandList>
               <CommandEmpty>
-                {loading ? "Loading..." : "No campaigns found."}
+                {loading ? "Loading..." : "No master campaigns found."}
               </CommandEmpty>
               <CommandGroup>
                 <CommandItem
@@ -75,22 +76,22 @@ export const MasterCampaignSelect = ({ value, onValueChange, currentCampaignId }
                   />
                   None (standalone campaign)
                 </CommandItem>
-                {availableMasterCampaigns.map((campaign) => (
+                {masterCampaignNames.map((name) => (
                   <CommandItem
-                    key={campaign.id}
-                    value={`${campaign.brand_name} - ${campaign.campaign_date}`}
+                    key={name}
+                    value={name}
                     onSelect={() => {
-                      onValueChange(campaign.id);
+                      onValueChange(name);
                       setOpen(false);
                     }}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === campaign.id ? "opacity-100" : "opacity-0"
+                        value === name ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    {campaign.brand_name} - {campaign.campaign_date}
+                    {name}
                   </CommandItem>
                 ))}
               </CommandGroup>

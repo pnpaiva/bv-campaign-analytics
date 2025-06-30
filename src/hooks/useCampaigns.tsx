@@ -13,6 +13,9 @@ export interface Campaign {
   client_id?: string;
   client_name?: string;
   master_campaign_id?: string;
+  master_campaign_name?: string;
+  master_campaign_start_date?: string;
+  master_campaign_end_date?: string;
   deal_value?: number;
   status: 'analyzing' | 'completed' | 'draft';
   total_views: number;
@@ -173,6 +176,9 @@ export const useCampaigns = () => {
     campaign_month?: string;
     client_id?: string;
     master_campaign_id?: string;
+    master_campaign_name?: string;
+    master_campaign_start_date?: string;
+    master_campaign_end_date?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => {
@@ -199,6 +205,9 @@ export const useCampaigns = () => {
           campaign_month: campaignData.campaign_month,
           client_id: campaignData.client_id,
           master_campaign_id: campaignData.master_campaign_id,
+          master_campaign_name: campaignData.master_campaign_name,
+          master_campaign_start_date: campaignData.master_campaign_start_date,
+          master_campaign_end_date: campaignData.master_campaign_end_date,
           deal_value: campaignData.deal_value,
           user_id: user.id,
           status: 'analyzing',
@@ -355,6 +364,9 @@ export const useCampaigns = () => {
     campaign_month?: string;
     client_id?: string;
     master_campaign_id?: string;
+    master_campaign_name?: string;
+    master_campaign_start_date?: string;
+    master_campaign_end_date?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => {
@@ -375,6 +387,9 @@ export const useCampaigns = () => {
         campaign_month: campaignData.campaign_month,
         client_id: campaignData.client_id,
         master_campaign_id: campaignData.master_campaign_id,
+        master_campaign_name: campaignData.master_campaign_name,
+        master_campaign_start_date: campaignData.master_campaign_start_date,
+        master_campaign_end_date: campaignData.master_campaign_end_date,
         deal_value: campaignData.deal_value,
       };
 

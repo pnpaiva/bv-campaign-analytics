@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,8 +68,10 @@ export default function Campaigns() {
     }
   };
 
-  // Filter campaigns to show only child campaigns (those with master_campaign_id) or standalone campaigns
-  const childCampaigns = campaigns.filter(campaign => campaign.master_campaign_id || !campaigns.some(c => c.master_campaign_id === campaign.id));
+  // Filter campaigns to show only regular campaigns (exclude master campaign templates)
+  const childCampaigns = campaigns.filter(campaign => 
+    !campaign.master_campaign_name || campaign.creator_id !== "00000000-0000-0000-0000-000000000000"
+  );
 
   if (loading) {
     return (
@@ -162,10 +163,10 @@ export default function Campaigns() {
                         )}
                       </div>
 
-                      {campaign.master_campaign_id && (
-                        <div className="flex items-center gap-1 text-xs text-blue-600">
+                      {campaign.master_campaign_name && (
+                        <div className="flex items-center gap-1 text-xs text-purple-600">
                           <Link2 className="h-3 w-3" />
-                          Part of master campaign
+                          Master: {campaign.master_campaign_name}
                         </div>
                       )}
 
