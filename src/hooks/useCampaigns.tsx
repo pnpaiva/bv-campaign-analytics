@@ -181,6 +181,7 @@ export const useCampaigns = () => {
     master_campaign_end_date?: string;
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
+    is_master_campaign_template?: boolean;
   }) => {
     if (!user) {
       toast({
@@ -211,6 +212,7 @@ export const useCampaigns = () => {
           deal_value: campaignData.deal_value,
           user_id: user.id,
           status: 'analyzing',
+          is_master_campaign_template: campaignData.is_master_campaign_template || false,
         })
         .select(`
           *,
@@ -242,8 +244,8 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
-      // Process content URLs for analytics if provided
-      if (campaignData.content_urls && campaignData.content_urls.length > 0) {
+      // Process content URLs for analytics if provided (skip for master campaign templates)
+      if (campaignData.content_urls && campaignData.content_urls.length > 0 && !campaignData.is_master_campaign_template) {
         console.log('Processing content URLs for analytics:', campaignData.content_urls);
         
         let analyticsProcessed = 0;
@@ -277,6 +279,11 @@ export const useCampaigns = () => {
             variant: "default",
           });
         }
+      } else if (campaignData.is_master_campaign_template) {
+        toast({
+          title: "Success",
+          description: "Master campaign template created successfully",
+        });
       } else {
         toast({
           title: "Success",

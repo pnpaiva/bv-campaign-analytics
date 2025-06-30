@@ -201,6 +201,7 @@ export type Database = {
           deal_value: number | null
           engagement_rate: number | null
           id: string
+          is_master_campaign_template: boolean | null
           master_campaign_end_date: string | null
           master_campaign_id: string | null
           master_campaign_name: string | null
@@ -222,6 +223,7 @@ export type Database = {
           deal_value?: number | null
           engagement_rate?: number | null
           id?: string
+          is_master_campaign_template?: boolean | null
           master_campaign_end_date?: string | null
           master_campaign_id?: string | null
           master_campaign_name?: string | null
@@ -243,6 +245,7 @@ export type Database = {
           deal_value?: number | null
           engagement_rate?: number | null
           id?: string
+          is_master_campaign_template?: boolean | null
           master_campaign_end_date?: string | null
           master_campaign_id?: string | null
           master_campaign_name?: string | null

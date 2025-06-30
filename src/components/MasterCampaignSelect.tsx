@@ -60,6 +60,7 @@ export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSel
           master_campaign_name: newMasterCampaignName.trim(),
           master_campaign_start_date: startDate,
           master_campaign_end_date: endDate,
+          is_master_campaign_template: true, // Mark as template
         });
       }
       

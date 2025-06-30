@@ -19,10 +19,10 @@ export const MasterCampaignManager = () => {
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Filter to show only master campaign templates (campaigns with placeholder creator)
+  // Filter to show only master campaign templates
   const masterCampaigns = campaigns.filter(campaign => 
     campaign.master_campaign_name && 
-    campaign.creator_id === "00000000-0000-0000-0000-000000000000" // Placeholder UUID for master campaigns
+    campaign.creator_id === "00000000-0000-0000-0000-000000000000"
   );
 
   const handleCreateMasterCampaign = async () => {
@@ -46,7 +46,7 @@ export const MasterCampaignManager = () => {
 
     setSaving(true);
     try {
-      // Create a master campaign template record
+      // Create a master campaign template record with the new is_master_campaign_template flag
       await createCampaign({
         brand_name: `Master Campaign: ${masterCampaignName}`,
         creator_id: "00000000-0000-0000-0000-000000000000", // Placeholder UUID
@@ -54,6 +54,7 @@ export const MasterCampaignManager = () => {
         master_campaign_name: masterCampaignName,
         master_campaign_start_date: startDate,
         master_campaign_end_date: endDate,
+        is_master_campaign_template: true, // Mark as template
       });
       
       toast({
