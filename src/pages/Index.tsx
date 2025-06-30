@@ -27,7 +27,7 @@ import {
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { campaigns, createCampaign, updateCampaign, deleteCampaign, getTotalEngagement, triggerCampaignAnalytics } = useCampaigns();
+  const { campaigns, createCampaign, updateCampaign, deleteCampaign, getTotalEngagement, triggerCampaignAnalytics, refetch } = useCampaigns();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState("dashboard");
   const [dashboardFilters, setDashboardFilters] = useState<{
@@ -94,6 +94,14 @@ const Index = () => {
     await triggerCampaignAnalytics(campaignId, ['youtube']);
   };
 
+  const handleRefreshDashboard = async () => {
+    await refetch();
+    toast({
+      title: "Success",
+      description: "Dashboard data refreshed",
+    });
+  };
+
   const handleEditCampaign = async (campaignData: any) => {
     if (editingCampaign) {
       await updateCampaign(editingCampaign.id, campaignData);
@@ -146,28 +154,19 @@ const Index = () => {
   const campaignPerformanceData = filteredCampaigns
     .sort((a, b) => new Date(a.campaign_date).getTime() - new Date(b.campaign_date).getTime())
     .map(campaign => ({
-      name: campaign.brand_name,
+      name: campaign.brand_name.length > 10 ? campaign.brand_name.substring(0, 10) + '...' : campaign.brand_name,
       views: campaign.total_views,
       engagement: campaign.total_engagement,
-      date: campaign.campaign_date
+      date: campaign.campaign_date,
+      engagementRate: campaign.engagement_rate
     }));
 
-  // Platform distribution based on actual campaigns
+  // Calculate platform distribution based on actual campaigns
   const platformStats = {
-    YouTube: 0,
+    YouTube: filteredCampaigns.length, // For now, assume all campaigns are YouTube
     Instagram: 0,
     TikTok: 0,
   };
-
-  // For now, we'll distribute based on campaign count since we don't have platform-specific data
-  // This is a placeholder until we have platform-specific analytics data
-  const totalCampaigns = filteredCampaigns.length;
-  if (totalCampaigns > 0) {
-    // Distribute evenly for now - this would be replaced with actual platform data from analytics
-    platformStats.YouTube = Math.round((totalCampaigns * 0.45));
-    platformStats.Instagram = Math.round((totalCampaigns * 0.35));
-    platformStats.TikTok = totalCampaigns - platformStats.YouTube - platformStats.Instagram;
-  }
 
   const platformData = [
     { name: "YouTube", value: platformStats.YouTube, color: "#FF0000" },
@@ -218,6 +217,10 @@ const Index = () => {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{user.email}</span>
+              <Button variant="outline" size="sm" onClick={handleRefreshDashboard}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Data
+              </Button>
               <Button variant="outline" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
                 Generate Report

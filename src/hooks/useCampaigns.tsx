@@ -161,8 +161,11 @@ export const useCampaigns = () => {
     try {
       await triggerAnalytics(campaignId, platforms);
       
-      // Refresh campaigns to get updated data
-      await fetchCampaigns();
+      // Add a small delay to allow backend processing
+      setTimeout(async () => {
+        // Refresh campaigns to get updated data
+        await fetchCampaigns();
+      }, 2000);
       
       toast({
         title: "Success",
@@ -299,6 +302,32 @@ export const useCampaigns = () => {
 
     return filteredCampaigns.reduce((total, campaign) => total + campaign.total_engagement, 0);
   };
+
+  // Set up real-time subscription for campaigns updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('campaigns-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'campaigns',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Refresh campaigns when any change occurs
+          fetchCampaigns();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   useEffect(() => {
     fetchCampaigns();
