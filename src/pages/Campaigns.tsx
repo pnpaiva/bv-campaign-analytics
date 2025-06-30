@@ -1,12 +1,15 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
+import { MasterCampaignManager } from "@/components/MasterCampaignManager";
 
 export default function Campaigns() {
   const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics, refreshAllCampaigns } = useCampaigns();
@@ -66,6 +69,9 @@ export default function Campaigns() {
     }
   };
 
+  // Filter campaigns to show only child campaigns (those with master_campaign_id) or standalone campaigns
+  const childCampaigns = campaigns.filter(campaign => campaign.master_campaign_id || !campaigns.some(c => c.master_campaign_id === campaign.id));
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
@@ -105,135 +111,154 @@ export default function Campaigns() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {campaigns.map((campaign) => (
-            <Card 
-              key={campaign.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleCardClick(campaign)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-1">{campaign.brand_name}</CardTitle>
-                    <CardDescription className="text-sm">
-                      {campaign.creators?.name}
-                    </CardDescription>
-                    {campaign.clients?.name && (
-                      <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                        <Building2 className="h-3 w-3" />
-                        {campaign.clients.name}
-                      </div>
-                    )}
-                  </div>
-                  <Badge className={`${getStatusColor(campaign.status)} text-white`}>
-                    {campaign.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(campaign.campaign_date).toLocaleDateString()}
-                    {campaign.campaign_month && (
-                      <span className="text-xs">
-                        (Month: {campaign.campaign_month})
-                      </span>
-                    )}
-                  </div>
+        <Tabs defaultValue="campaigns" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="campaigns" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Campaigns
+            </TabsTrigger>
+            <TabsTrigger value="master-campaigns" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Master Campaigns
+            </TabsTrigger>
+          </TabsList>
 
-                  {campaign.master_campaign_id && (
-                    <div className="flex items-center gap-1 text-xs text-blue-600">
-                      <Link2 className="h-3 w-3" />
-                      Part of master campaign
+          <TabsContent value="campaigns">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {childCampaigns.map((campaign) => (
+                <Card 
+                  key={campaign.id} 
+                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => handleCardClick(campaign)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg mb-1">{campaign.brand_name}</CardTitle>
+                        <CardDescription className="text-sm">
+                          {campaign.creators?.name}
+                        </CardDescription>
+                        {campaign.clients?.name && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                            <Building2 className="h-3 w-3" />
+                            {campaign.clients.name}
+                          </div>
+                        )}
+                      </div>
+                      <Badge className={`${getStatusColor(campaign.status)} text-white`}>
+                        {campaign.status}
+                      </Badge>
                     </div>
-                  )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(campaign.campaign_date).toLocaleDateString()}
+                        {campaign.campaign_month && (
+                          <span className="text-xs">
+                            (Month: {campaign.campaign_month})
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="grid grid-cols-3 gap-4 py-3 border-y">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-                        <Eye className="h-4 w-4" />
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {campaign.total_views?.toLocaleString() || '0'}
-                      </div>
-                      <div className="text-xs text-gray-500">Views</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                        <MessageSquare className="h-4 w-4" />
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {campaign.total_engagement?.toLocaleString() || '0'}
-                      </div>
-                      <div className="text-xs text-gray-500">Engagement</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
-                        <TrendingUp className="h-4 w-4" />
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {campaign.engagement_rate?.toFixed(1) || '0'}%
-                      </div>
-                      <div className="text-xs text-gray-500">Rate</div>
-                    </div>
-                  </div>
+                      {campaign.master_campaign_id && (
+                        <div className="flex items-center gap-1 text-xs text-blue-600">
+                          <Link2 className="h-3 w-3" />
+                          Part of master campaign
+                        </div>
+                      )}
 
-                  {campaign.deal_value && (
-                    <div className="text-center py-2">
-                      <div className="text-lg font-semibold text-green-600">
-                        ${campaign.deal_value.toLocaleString()}
+                      <div className="grid grid-cols-3 gap-4 py-3 border-y">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
+                            <Eye className="h-4 w-4" />
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {campaign.total_views?.toLocaleString() || '0'}
+                          </div>
+                          <div className="text-xs text-gray-500">Views</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
+                            <MessageSquare className="h-4 w-4" />
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {campaign.total_engagement?.toLocaleString() || '0'}
+                          </div>
+                          <div className="text-xs text-gray-500">Engagement</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
+                            <TrendingUp className="h-4 w-4" />
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {campaign.engagement_rate?.toFixed(1) || '0'}%
+                          </div>
+                          <div className="text-xs text-gray-500">Rate</div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">Deal Value</div>
+
+                      {campaign.deal_value && (
+                        <div className="text-center py-2">
+                          <div className="text-lg font-semibold text-green-600">
+                            ${campaign.deal_value.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-500">Deal Value</div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleEditClick(campaign, e)}
+                          className="flex-1"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleRefreshAnalytics(campaign, e)}
+                          className="flex-1"
+                        >
+                          Refresh
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={(e) => handleDeleteClick(campaign, e)}
+                          className="px-3"
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => handleEditClick(campaign, e)}
-                      className="flex-1"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => handleRefreshAnalytics(campaign, e)}
-                      className="flex-1"
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => handleDeleteClick(campaign, e)}
-                      className="px-3"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {campaigns.length === 0 && (
-          <div className="text-center py-20">
-            <div className="text-gray-400 mb-4">
-              <Calendar className="h-16 w-16 mx-auto" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">No campaigns found</h3>
-            <p className="text-gray-500 mb-6">Create your first campaign to get started</p>
-            <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
-              <Plus className="h-5 w-5" />
-              Create Your First Campaign
-            </Button>
-          </div>
-        )}
+
+            {childCampaigns.length === 0 && (
+              <div className="text-center py-20">
+                <div className="text-gray-400 mb-4">
+                  <Calendar className="h-16 w-16 mx-auto" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No campaigns found</h3>
+                <p className="text-gray-500 mb-6">Create your first campaign to get started</p>
+                <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
+                  <Plus className="h-5 w-5" />
+                  Create Your First Campaign
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="master-campaigns">
+            <MasterCampaignManager />
+          </TabsContent>
+        </Tabs>
 
         <CreateCampaignDialog
           open={createDialogOpen}
