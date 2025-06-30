@@ -9,6 +9,172 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      analytics_data: {
+        Row: {
+          campaign_id: string
+          comments: number | null
+          content_url: string
+          created_at: string
+          engagement: number | null
+          engagement_rate: number | null
+          fetched_at: string
+          id: string
+          likes: number | null
+          platform: string
+          sentiment_label: string | null
+          sentiment_score: number | null
+          shares: number | null
+          updated_at: string
+          views: number | null
+        }
+        Insert: {
+          campaign_id: string
+          comments?: number | null
+          content_url: string
+          created_at?: string
+          engagement?: number | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          likes?: number | null
+          platform: string
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          shares?: number | null
+          updated_at?: string
+          views?: number | null
+        }
+        Update: {
+          campaign_id?: string
+          comments?: number | null
+          content_url?: string
+          created_at?: string
+          engagement?: number | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          likes?: number | null
+          platform?: string
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          shares?: number | null
+          updated_at?: string
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_data_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_jobs: {
+        Row: {
+          campaign_id: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          platform: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platform: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          platform?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          platform: string
+          response_data: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          platform: string
+          response_data: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          platform?: string
+          response_data?: Json
+        }
+        Relationships: []
+      }
+      api_credentials: {
+        Row: {
+          created_at: string
+          credential_type: string
+          encrypted_value: string
+          expires_at: string | null
+          id: string
+          platform: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credential_type: string
+          encrypted_value: string
+          expires_at?: string | null
+          id?: string
+          platform: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credential_type?: string
+          encrypted_value?: string
+          expires_at?: string | null
+          id?: string
+          platform?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           brand_name: string
@@ -97,7 +263,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_campaign_totals: {
+        Args: { campaign_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
