@@ -81,6 +81,16 @@ export const useDashboardAnalytics = () => {
           monthly_trends: rawData.monthly_trends as Record<string, any>,
         };
         setMetrics(processedMetrics);
+        
+        // Convert monthly trends to trends array format
+        const monthlyTrendsArray = Object.entries(processedMetrics.monthly_trends).map(([month, data]: [string, any]) => ({
+          period: month,
+          total_views: data.views || 0,
+          total_engagement: data.engagement || 0,
+          campaign_count: data.campaigns || 0,
+          avg_engagement_rate: data.views > 0 ? ((data.engagement || 0) / data.views) * 100 : 0,
+        }));
+        setTrends(monthlyTrendsArray);
       }
     } catch (error) {
       console.error('Error fetching dashboard metrics:', error);
@@ -139,7 +149,6 @@ export const useDashboardAnalytics = () => {
     setLoading(true);
     await Promise.all([
       fetchDashboardMetrics(filters),
-      fetchCampaignTrends(filters),
       fetchTopContent()
     ]);
     setLoading(false);

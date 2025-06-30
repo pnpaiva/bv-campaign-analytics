@@ -54,7 +54,7 @@ export const DashboardCharts = ({ metrics, trends, topContent }: DashboardCharts
       .slice(0, 10) // Top 10 creators
     : [];
 
-  // Prepare monthly trends data
+  // Use the monthly trends data directly from metrics
   const monthlyData = metrics?.monthly_trends ? 
     Object.entries(metrics.monthly_trends)
       .map(([month, data]: [string, any]) => ({
@@ -68,17 +68,17 @@ export const DashboardCharts = ({ metrics, trends, topContent }: DashboardCharts
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      {/* Campaign Trends Over Time */}
+      {/* Monthly Trends Chart */}
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Campaign Performance Trends</CardTitle>
-          <CardDescription>Views and engagement over time</CardDescription>
+          <CardTitle>Monthly Performance Trends</CardTitle>
+          <CardDescription>Views and engagement by month</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[300px]">
-            <LineChart data={trends}>
+            <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
+              <XAxis dataKey="month" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
               <ChartTooltip content={<ChartTooltipContent />} />
@@ -86,7 +86,7 @@ export const DashboardCharts = ({ metrics, trends, topContent }: DashboardCharts
               <Line
                 yAxisId="left"
                 type="monotone"
-                dataKey="total_views"
+                dataKey="views"
                 stroke={chartConfig.views.color}
                 strokeWidth={2}
                 name="Total Views"
@@ -94,7 +94,7 @@ export const DashboardCharts = ({ metrics, trends, topContent }: DashboardCharts
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="total_engagement"
+                dataKey="engagement"
                 stroke={chartConfig.engagement.color}
                 strokeWidth={2}
                 name="Total Engagement"
@@ -150,7 +150,7 @@ export const DashboardCharts = ({ metrics, trends, topContent }: DashboardCharts
         </CardContent>
       </Card>
 
-      {/* Monthly Overview */}
+      {/* Monthly Overview Bar Chart */}
       {monthlyData.length > 0 && (
         <Card className="lg:col-span-2">
           <CardHeader>
