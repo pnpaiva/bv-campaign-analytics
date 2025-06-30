@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +10,7 @@ export interface DashboardFilters {
   clientIds?: string[];
   campaignIds?: string[];
   platforms?: string[];
+  masterCampaigns?: string[];
 }
 
 export interface DashboardMetrics {
@@ -63,6 +63,7 @@ export const useDashboardAnalytics = () => {
         client_ids: filters.clientIds || null,
         campaign_ids: filters.campaignIds || null,
         platforms: filters.platforms || null,
+        master_campaigns: filters.masterCampaigns || null,
       });
 
       if (error) throw error;

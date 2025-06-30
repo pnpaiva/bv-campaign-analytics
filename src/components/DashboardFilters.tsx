@@ -25,12 +25,20 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [selectedMasterCampaigns, setSelectedMasterCampaigns] = useState<string[]>([]);
 
   const { campaigns } = useCampaigns();
   const { creators } = useCreators();
   const { clients } = useClients();
 
   const platforms = ['youtube', 'instagram', 'tiktok', 'facebook', 'twitter'];
+
+  // Get unique master campaign names from existing campaigns
+  const masterCampaigns = [...new Set(
+    campaigns
+      .filter(campaign => campaign.master_campaign_name)
+      .map(campaign => campaign.master_campaign_name)
+  )].filter(Boolean).map(name => ({ name, id: name }));
 
   const handleApplyFilters = () => {
     const filters: DashboardFiltersType = {
@@ -40,6 +48,7 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
       clientIds: selectedClients.length > 0 ? selectedClients : undefined,
       campaignIds: selectedCampaigns.length > 0 ? selectedCampaigns : undefined,
       platforms: selectedPlatforms.length > 0 ? selectedPlatforms : undefined,
+      masterCampaigns: selectedMasterCampaigns.length > 0 ? selectedMasterCampaigns : undefined,
     };
     onFiltersChange(filters);
   };
@@ -51,6 +60,7 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
     setSelectedClients([]);
     setSelectedCampaigns([]);
     setSelectedPlatforms([]);
+    setSelectedMasterCampaigns([]);
     onFiltersChange({});
   };
 
@@ -117,7 +127,8 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
                     label === 'Creators' ? setSelectedCreators :
                     label === 'Clients' ? setSelectedClients :
                     label === 'Campaigns' ? setSelectedCampaigns :
-                    setSelectedPlatforms
+                    label === 'Platforms' ? setSelectedPlatforms :
+                    setSelectedMasterCampaigns
                   )}
                 />
               </Badge>
@@ -195,6 +206,19 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
             getItemLabel={(platform) => platform.name.charAt(0).toUpperCase() + platform.name.slice(1)}
             getItemValue={(platform) => platform.id}
           />
+        </div>
+
+        {/* Master Campaigns Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MultiSelectDropdown
+            label="Master Campaigns"
+            items={masterCampaigns}
+            selectedItems={selectedMasterCampaigns}
+            onToggle={(value) => toggleSelection(value, selectedMasterCampaigns, setSelectedMasterCampaigns)}
+            getItemLabel={(masterCampaign) => masterCampaign.name}
+            getItemValue={(masterCampaign) => masterCampaign.id}
+          />
+          <div></div> {/* Empty div to maintain grid layout */}
         </div>
 
         {/* Action Buttons */}
