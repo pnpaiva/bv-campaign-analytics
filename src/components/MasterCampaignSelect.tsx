@@ -1,104 +1,143 @@
 
 import { useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
+import { useToast } from "@/hooks/use-toast";
 
 interface MasterCampaignSelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
 }
 
 export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSelectProps) => {
-  const [open, setOpen] = useState(false);
-  const { campaigns, loading } = useCampaigns();
+  const { campaigns } = useCampaigns();
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newMasterCampaignName, setNewMasterCampaignName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
-  // Get unique master campaign names
-  const masterCampaignNames = campaigns
-    .filter(campaign => campaign.master_campaign_name)
-    .reduce((acc, campaign) => {
-      if (!acc.includes(campaign.master_campaign_name!)) {
-        acc.push(campaign.master_campaign_name!);
-      }
-      return acc;
-    }, [] as string[]);
+  // Get unique master campaign names from existing campaigns
+  const masterCampaignNames = [...new Set(
+    campaigns
+      .filter(campaign => campaign.master_campaign_name)
+      .map(campaign => campaign.master_campaign_name)
+  )].filter(Boolean);
+
+  const handleCreateMasterCampaign = async () => {
+    if (!newMasterCampaignName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a master campaign name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
+      toast({
+        title: "Validation Error",
+        description: "End date must be after start date",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Just add the name to the current selection
+    onValueChange(newMasterCampaignName.trim());
+    setNewMasterCampaignName("");
+    setStartDate("");
+    setEndDate("");
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Success",
+      description: "Master campaign name ready to use",
+    });
+  };
 
   return (
     <div className="space-y-2">
       <Label>Master Campaign (Optional)</Label>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-          >
-            {value || "Select master campaign..."}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0">
-          <Command>
-            <CommandInput placeholder="Search master campaigns..." />
-            <CommandList>
-              <CommandEmpty>
-                {loading ? "Loading..." : "No master campaigns found."}
-              </CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  value=""
-                  onSelect={() => {
-                    onValueChange("");
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === "" ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  None (standalone campaign)
-                </CommandItem>
-                {masterCampaignNames.map((name) => (
-                  <CommandItem
-                    key={name}
-                    value={name}
-                    onSelect={() => {
-                      onValueChange(name);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <div className="flex gap-2">
+        <Select value={value} onValueChange={onValueChange}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Select or create a master campaign" />
+          </SelectTrigger>
+          <SelectContent>
+            {masterCampaignNames.length === 0 ? (
+              <SelectItem value="no-master-campaigns" disabled>No master campaigns found</SelectItem>
+            ) : (
+              masterCampaignNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Master Campaign</DialogTitle>
+              <DialogDescription>
+                Create a master campaign name to organize related campaigns.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="master-campaign-name">Master Campaign Name</Label>
+                <Input
+                  id="master-campaign-name"
+                  value={newMasterCampaignName}
+                  onChange={(e) => setNewMasterCampaignName(e.target.value)}
+                  placeholder="Enter master campaign name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="start-date-select">Start Date (Optional)</Label>
+                <Input
+                  id="start-date-select"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="end-date-select">End Date (Optional)</Label>
+                <Input
+                  id="end-date-select"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateMasterCampaign}>
+                  Create Master Campaign
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
