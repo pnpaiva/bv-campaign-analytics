@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -164,7 +163,6 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
           <MasterCampaignSelect 
             value={selectedMasterCampaign} 
             onValueChange={setSelectedMasterCampaign}
-            currentCampaignId={campaign?.id}
           />
 
           <div className="space-y-2">
