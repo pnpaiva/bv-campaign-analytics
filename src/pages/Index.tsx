@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { exportDashboardToPDF, exportCampaignToPDF } from "@/utils/pdfExport";
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -139,6 +140,14 @@ const Index = () => {
     });
   };
 
+  const handleExportDashboard = () => {
+    exportDashboardToPDF(filteredCampaigns, totalEngagement, dashboardFilters);
+    toast({
+      title: "Success",
+      description: "Dashboard report downloaded successfully",
+    });
+  };
+
   const handleEditCampaign = async (campaignData: any) => {
     if (editingCampaign) {
       await updateCampaign(editingCampaign.id, campaignData);
@@ -156,10 +165,20 @@ const Index = () => {
   };
 
   const handleGenerateReport = (campaignId: string) => {
-    toast({
-      title: "Report Generation",
-      description: "Report generation feature will be implemented with PDF creation capability.",
-    });
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (campaign) {
+      exportCampaignToPDF(campaign);
+      toast({
+        title: "Success",
+        description: "Campaign report downloaded successfully",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Campaign not found",
+        variant: "destructive",
+      });
+    }
   };
 
   const addContentUrl = (platform: string) => {
@@ -258,10 +277,12 @@ const Index = () => {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh Data
               </Button>
-              <Button variant="outline" size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Report
-              </Button>
+              {currentView === "dashboard" && (
+                <Button variant="outline" size="sm" onClick={handleExportDashboard}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Dashboard
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
