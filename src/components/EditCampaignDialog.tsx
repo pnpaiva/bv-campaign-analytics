@@ -72,9 +72,17 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     }
   };
 
+  const groupedUrls = contentUrls.reduce((acc, url, index) => {
+    if (!acc[url.platform]) {
+      acc[url.platform] = [];
+    }
+    acc[url.platform].push({ ...url, index });
+    return acc;
+  }, {} as Record<string, Array<{ platform: string; url: string; index: number }>>);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Campaign</DialogTitle>
         </DialogHeader>
@@ -113,37 +121,96 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
           {/* Content URLs Section */}
           <div className="space-y-2">
             <Label>Content URLs</Label>
-            <div className="space-y-3">
-              {contentUrls.map((item, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {item.platform === 'YouTube' && <Youtube className="h-4 w-4 text-red-600 flex-shrink-0" />}
-                    {item.platform === 'Instagram' && <Instagram className="h-4 w-4 text-pink-600 flex-shrink-0" />}
-                    {item.platform === 'TikTok' && <div className="h-4 w-4 bg-black rounded flex-shrink-0"></div>}
-                    <Input 
-                      placeholder={`${item.platform} URL`}
-                      value={item.url}
-                      onChange={(e) => updateContentUrl(index, e.target.value)}
-                      className="flex-1"
-                    />
+            <div className="space-y-4">
+              {/* YouTube URLs */}
+              {groupedUrls.YouTube && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Youtube className="h-4 w-4 text-red-600" />
+                    <span className="font-medium">YouTube Videos</span>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => removeContentUrl(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {groupedUrls.YouTube.map((item) => (
+                    <div key={item.index} className="flex gap-2 items-center ml-6">
+                      <Input 
+                        placeholder="YouTube URL"
+                        value={item.url}
+                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => removeContentUrl(item.index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Instagram URLs */}
+              {groupedUrls.Instagram && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="h-4 w-4 text-pink-600" />
+                    <span className="font-medium">Instagram Posts</span>
+                  </div>
+                  {groupedUrls.Instagram.map((item) => (
+                    <div key={item.index} className="flex gap-2 items-center ml-6">
+                      <Input 
+                        placeholder="Instagram URL"
+                        value={item.url}
+                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => removeContentUrl(item.index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TikTok URLs */}
+              {groupedUrls.TikTok && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-black rounded" />
+                    <span className="font-medium">TikTok Videos</span>
+                  </div>
+                  {groupedUrls.TikTok.map((item) => (
+                    <div key={item.index} className="flex gap-2 items-center ml-6">
+                      <Input 
+                        placeholder="TikTok URL"
+                        value={item.url}
+                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => removeContentUrl(item.index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap pt-2 border-t">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => addContentUrl('YouTube')}
                   type="button"
                 >
+                  <Plus className="h-4 w-4 mr-2" />
                   <Youtube className="h-4 w-4 mr-2 text-red-600" />
                   Add YouTube
                 </Button>
@@ -153,6 +220,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                   onClick={() => addContentUrl('Instagram')}
                   type="button"
                 >
+                  <Plus className="h-4 w-4 mr-2" />
                   <Instagram className="h-4 w-4 mr-2 text-pink-600" />
                   Add Instagram
                 </Button>
@@ -162,6 +230,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                   onClick={() => addContentUrl('TikTok')}
                   type="button"
                 >
+                  <Plus className="h-4 w-4 mr-2" />
                   <div className="h-4 w-4 mr-2 bg-black rounded"></div>
                   Add TikTok
                 </Button>

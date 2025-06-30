@@ -458,10 +458,12 @@ const Index = () => {
                 <Card 
                   key={campaign.id} 
                   className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setViewingCampaign(campaign)}
                 >
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
+                    <div 
+                      className="flex items-center justify-between"
+                      onClick={() => setViewingCampaign(campaign)}
+                    >
                       <div className="flex items-center space-x-4">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">{campaign.brand_name}</h3>
@@ -485,11 +487,14 @@ const Index = () => {
                           <p className="font-medium">{campaign.deal_value ? `$${campaign.deal_value.toLocaleString()}` : 'N/A'}</p>
                           <p>Deal Value</p>
                         </div>
-                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex space-x-2">
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleRefreshAnalytics(campaign.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRefreshAnalytics(campaign.id);
+                            }}
                           >
                             <RefreshCw className="h-4 w-4 mr-2" />
                             Refresh
@@ -497,7 +502,10 @@ const Index = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => setEditingCampaign(campaign)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingCampaign(campaign);
+                            }}
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
@@ -505,7 +513,10 @@ const Index = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => setDeletingCampaignId(campaign.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingCampaignId(campaign.id);
+                            }}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
@@ -513,7 +524,10 @@ const Index = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleGenerateReport(campaign.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGenerateReport(campaign.id);
+                            }}
                           >
                             <Download className="h-4 w-4 mr-2" />
                             Report
