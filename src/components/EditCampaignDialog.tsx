@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { CreatorSelect } from "@/components/CreatorSelect";
 import { Campaign } from "@/hooks/useCampaigns";
 import { Youtube, Instagram, Trash2, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface EditCampaignDialogProps {
   campaign: Campaign | null;
@@ -28,6 +29,32 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
   const [dealValue, setDealValue] = useState("");
   const [contentUrls, setContentUrls] = useState<{ platform: string; url: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingUrls, setLoadingUrls] = useState(false);
+
+  // Fetch existing content URLs from analytics_data
+  const fetchExistingUrls = async (campaignId: string) => {
+    setLoadingUrls(true);
+    try {
+      const { data, error } = await supabase
+        .from('analytics_data')
+        .select('platform, content_url')
+        .eq('campaign_id', campaignId);
+
+      if (error) throw error;
+
+      const urls = data.map(item => ({
+        platform: item.platform,
+        url: item.content_url
+      }));
+      
+      setContentUrls(urls);
+    } catch (error) {
+      console.error('Error fetching existing URLs:', error);
+      setContentUrls([]);
+    } finally {
+      setLoadingUrls(false);
+    }
+  };
 
   // Reset form when dialog opens with campaign data
   useEffect(() => {
@@ -37,8 +64,8 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
       setCampaignDate(campaign.campaign_date);
       setDealValue(campaign.deal_value?.toString() || "");
       
-      // Initialize with empty content URLs array - you can extend this to load existing URLs from database if needed
-      setContentUrls([]);
+      // Fetch existing content URLs from the database
+      fetchExistingUrls(campaign.id);
     }
   }, [campaign, open]);
 
@@ -121,121 +148,125 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
           {/* Content URLs Section */}
           <div className="space-y-2">
             <Label>Content URLs</Label>
-            <div className="space-y-4">
-              {/* YouTube URLs */}
-              {groupedUrls.YouTube && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Youtube className="h-4 w-4 text-red-600" />
-                    <span className="font-medium">YouTube Videos</span>
-                  </div>
-                  {groupedUrls.YouTube.map((item) => (
-                    <div key={item.index} className="flex gap-2 items-center ml-6">
-                      <Input 
-                        placeholder="YouTube URL"
-                        value={item.url}
-                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => removeContentUrl(item.index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+            {loadingUrls ? (
+              <div className="text-center py-2 text-gray-500">Loading existing videos...</div>
+            ) : (
+              <div className="space-y-4">
+                {/* YouTube URLs */}
+                {groupedUrls.YouTube && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Youtube className="h-4 w-4 text-red-600" />
+                      <span className="font-medium">YouTube Videos</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {groupedUrls.YouTube.map((item) => (
+                      <div key={item.index} className="flex gap-2 items-center ml-6">
+                        <Input 
+                          placeholder="YouTube URL"
+                          value={item.url}
+                          onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeContentUrl(item.index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* Instagram URLs */}
-              {groupedUrls.Instagram && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Instagram className="h-4 w-4 text-pink-600" />
-                    <span className="font-medium">Instagram Posts</span>
-                  </div>
-                  {groupedUrls.Instagram.map((item) => (
-                    <div key={item.index} className="flex gap-2 items-center ml-6">
-                      <Input 
-                        placeholder="Instagram URL"
-                        value={item.url}
-                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => removeContentUrl(item.index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                {/* Instagram URLs */}
+                {groupedUrls.Instagram && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Instagram className="h-4 w-4 text-pink-600" />
+                      <span className="font-medium">Instagram Posts</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    {groupedUrls.Instagram.map((item) => (
+                      <div key={item.index} className="flex gap-2 items-center ml-6">
+                        <Input 
+                          placeholder="Instagram URL"
+                          value={item.url}
+                          onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeContentUrl(item.index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              {/* TikTok URLs */}
-              {groupedUrls.TikTok && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-black rounded" />
-                    <span className="font-medium">TikTok Videos</span>
-                  </div>
-                  {groupedUrls.TikTok.map((item) => (
-                    <div key={item.index} className="flex gap-2 items-center ml-6">
-                      <Input 
-                        placeholder="TikTok URL"
-                        value={item.url}
-                        onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => removeContentUrl(item.index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                {/* TikTok URLs */}
+                {groupedUrls.TikTok && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 bg-black rounded" />
+                      <span className="font-medium">TikTok Videos</span>
                     </div>
-                  ))}
+                    {groupedUrls.TikTok.map((item) => (
+                      <div key={item.index} className="flex gap-2 items-center ml-6">
+                        <Input 
+                          placeholder="TikTok URL"
+                          value={item.url}
+                          onChange={(e) => updateContentUrl(item.index, e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => removeContentUrl(item.index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="flex gap-2 flex-wrap pt-2 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => addContentUrl('YouTube')}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    <Youtube className="h-4 w-4 mr-2 text-red-600" />
+                    Add YouTube
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => addContentUrl('Instagram')}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    <Instagram className="h-4 w-4 mr-2 text-pink-600" />
+                    Add Instagram
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => addContentUrl('TikTok')}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    <div className="h-4 w-4 mr-2 bg-black rounded"></div>
+                    Add TikTok
+                  </Button>
                 </div>
-              )}
-              
-              <div className="flex gap-2 flex-wrap pt-2 border-t">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => addContentUrl('YouTube')}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <Youtube className="h-4 w-4 mr-2 text-red-600" />
-                  Add YouTube
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => addContentUrl('Instagram')}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <Instagram className="h-4 w-4 mr-2 text-pink-600" />
-                  Add Instagram
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => addContentUrl('TikTok')}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <div className="h-4 w-4 mr-2 bg-black rounded"></div>
-                  Add TikTok
-                </Button>
               </div>
-            </div>
+            )}
           </div>
         </div>
         <div className="flex justify-end space-x-2">
