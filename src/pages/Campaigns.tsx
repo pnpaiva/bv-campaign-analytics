@@ -1,14 +1,17 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings } from "lucide-react";
+import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings, Youtube, Instagram, ExternalLink } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 import { MasterCampaignManager } from "@/components/MasterCampaignManager";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export default function Campaigns() {
   const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics, refreshAllCampaigns } = useCampaigns();
@@ -17,6 +20,35 @@ export default function Campaigns() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [campaignUrls, setCampaignUrls] = useState({});
+
+  // Fetch content URLs for all campaigns
+  useEffect(() => {
+    const fetchCampaignUrls = async () => {
+      if (campaigns.length === 0) return;
+      
+      const campaignIds = campaigns.map(c => c.id);
+      const { data } = await supabase
+        .from('analytics_data')
+        .select('campaign_id, platform, content_url')
+        .in('campaign_id', campaignIds);
+
+      const urlsMap = {};
+      data?.forEach(item => {
+        if (!urlsMap[item.campaign_id]) {
+          urlsMap[item.campaign_id] = [];
+        }
+        urlsMap[item.campaign_id].push({
+          platform: item.platform,
+          url: item.content_url
+        });
+      });
+      
+      setCampaignUrls(urlsMap);
+    };
+
+    fetchCampaignUrls();
+  }, [campaigns]);
 
   const handleCreateCampaign = async (campaignData) => {
     await createCampaign(campaignData);
@@ -24,6 +56,7 @@ export default function Campaigns() {
 
   const handleUpdateCampaign = async (campaignData) => {
     if (selectedCampaign) {
+      console.log('Updating campaign with data:', campaignData);
       await updateCampaign(selectedCampaign.id, campaignData);
     }
   };
@@ -65,6 +98,19 @@ export default function Campaigns() {
         return 'bg-yellow-500';
       default:
         return 'bg-gray-500';
+    }
+  };
+
+  const getPlatformIcon = (platform) => {
+    switch (platform?.toLowerCase()) {
+      case 'youtube':
+        return <Youtube className="h-3 w-3 text-red-600" />;
+      case 'instagram':
+        return <Instagram className="h-3 w-3 text-pink-600" />;
+      case 'tiktok':
+        return <div className="h-3 w-3 bg-black rounded" />;
+      default:
+        return <ExternalLink className="h-3 w-3 text-gray-600" />;
     }
   };
 
@@ -168,6 +214,39 @@ export default function Campaigns() {
                         <div className="flex items-center gap-1 text-xs text-purple-600">
                           <Link2 className="h-3 w-3" />
                           Master: {campaign.master_campaign_name}
+                        </div>
+                      )}
+
+                      {/* Content URLs Section */}
+                      {campaignUrls[campaign.id] && campaignUrls[campaign.id].length > 0 && (
+                        <div className="border-t pt-2">
+                          <div className="text-xs font-medium text-gray-700 mb-1">Content URLs:</div>
+                          <div className="space-y-1">
+                            {campaignUrls[campaign.id].slice(0, 2).map((url, index) => (
+                              <div key={index} className="flex items-center gap-2 text-xs">
+                                {getPlatformIcon(url.platform)}
+                                <span className="text-gray-600 truncate flex-1">
+                                  {url.platform}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-1 h-auto"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(url.url, '_blank');
+                                  }}
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                            {campaignUrls[campaign.id].length > 2 && (
+                              <div className="text-xs text-gray-500">
+                                +{campaignUrls[campaign.id].length - 2} more...
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
 

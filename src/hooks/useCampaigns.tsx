@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -372,7 +371,6 @@ export const useCampaigns = () => {
     campaign_date?: string;
     campaign_month?: string;
     client_id?: string;
-    master_campaign_id?: string;
     master_campaign_name?: string;
     master_campaign_start_date?: string;
     master_campaign_end_date?: string;
@@ -389,18 +387,24 @@ export const useCampaigns = () => {
     }
 
     try {
+      console.log('=== Updating Campaign ===');
+      console.log('Campaign ID:', campaignId);
+      console.log('Update data:', campaignData);
+
+      // Prepare update data - explicitly exclude master_campaign_id since we use name instead
       const updateData = {
         brand_name: campaignData.brand_name,
         creator_id: campaignData.creator_id,
         campaign_date: campaignData.campaign_date,
         campaign_month: campaignData.campaign_month,
         client_id: campaignData.client_id,
-        master_campaign_id: campaignData.master_campaign_id,
         master_campaign_name: campaignData.master_campaign_name,
         master_campaign_start_date: campaignData.master_campaign_start_date,
         master_campaign_end_date: campaignData.master_campaign_end_date,
         deal_value: campaignData.deal_value,
       };
+
+      console.log('Prepared update data:', updateData);
 
       const { data, error } = await supabase
         .from('campaigns')
@@ -419,7 +423,12 @@ export const useCampaigns = () => {
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+      
+      console.log('Campaign updated successfully:', data);
       
       const typedCampaign: Campaign = {
         ...data,
@@ -471,7 +480,7 @@ export const useCampaigns = () => {
       console.error('Error updating campaign:', error);
       toast({
         title: "Error",
-        description: "Failed to update campaign",
+        description: `Failed to update campaign: ${error.message}`,
         variant: "destructive",
       });
       return null;
