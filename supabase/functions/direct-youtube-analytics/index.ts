@@ -77,36 +77,55 @@ serve(async (req) => {
     console.log('Real analytics data:', analyticsData);
     console.log('Calculated engagement rate:', engagementRate);
 
-    // Store analytics data
-    const { error: insertError } = await supabaseClient
+    // First, try to update existing analytics data
+    const { error: updateError } = await supabaseClient
       .from('analytics_data')
-      .upsert({
-        campaign_id,
-        platform: 'youtube',
-        content_url: video_url,
+      .update({
         views: analyticsData.views,
         engagement: analyticsData.engagement,
         likes: analyticsData.likes,
         comments: analyticsData.comments,
         engagement_rate: parseFloat(engagementRate.toFixed(2)),
         fetched_at: new Date().toISOString()
-      });
+      })
+      .eq('campaign_id', campaign_id)
+      .eq('platform', 'youtube')
+      .eq('content_url', video_url);
 
-    if (insertError) {
-      console.error('Error inserting analytics data:', insertError);
-      throw insertError;
+    if (updateError) {
+      console.log('Update failed, attempting insert:', updateError);
+      
+      // If update fails, try insert (in case the record doesn't exist)
+      const { error: insertError } = await supabaseClient
+        .from('analytics_data')
+        .insert({
+          campaign_id,
+          platform: 'youtube',
+          content_url: video_url,
+          views: analyticsData.views,
+          engagement: analyticsData.engagement,
+          likes: analyticsData.likes,
+          comments: analyticsData.comments,
+          engagement_rate: parseFloat(engagementRate.toFixed(2)),
+          fetched_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error inserting analytics data:', insertError);
+        throw insertError;
+      }
     }
 
-    console.log('Successfully stored analytics data');
+    console.log('Successfully stored/updated analytics data');
 
     // Update campaign totals
-    const { error: updateError } = await supabaseClient.rpc('update_campaign_totals', {
+    const { error: campaignUpdateError } = await supabaseClient.rpc('update_campaign_totals', {
       campaign_uuid: campaign_id
     });
 
-    if (updateError) {
-      console.error('Error updating campaign totals:', updateError);
-      throw updateError;
+    if (campaignUpdateError) {
+      console.error('Error updating campaign totals:', campaignUpdateError);
+      throw campaignUpdateError;
     }
 
     console.log('Successfully updated campaign totals');
