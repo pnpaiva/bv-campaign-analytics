@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,7 @@ export interface Campaign {
   total_views: number;
   total_engagement: number;
   engagement_rate: number;
+  is_master_campaign_template?: boolean;
   created_at: string;
   updated_at: string;
   creators?: {
