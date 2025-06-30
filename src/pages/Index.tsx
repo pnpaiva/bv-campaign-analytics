@@ -14,6 +14,7 @@ import { CreatorSelect } from "@/components/CreatorSelect";
 import { DashboardFilters } from "@/components/DashboardFilters";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,7 +92,43 @@ const Index = () => {
   };
 
   const handleRefreshAnalytics = async (campaignId: string) => {
-    await triggerCampaignAnalytics(campaignId, ['youtube']);
+    // Find the campaign and get its YouTube URL from analytics data
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) {
+      toast({
+        title: "Error",
+        description: "Campaign not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Get analytics data to find YouTube URL
+      const { data: analyticsData } = await supabase
+        .from('analytics_data')
+        .select('content_url')
+        .eq('campaign_id', campaignId)
+        .eq('platform', 'youtube')
+        .limit(1);
+
+      if (analyticsData && analyticsData.length > 0) {
+        await triggerCampaignAnalytics(campaignId, ['youtube'], analyticsData[0].content_url);
+      } else {
+        toast({
+          title: "Error", 
+          description: "No YouTube URL found for this campaign",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing analytics:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh analytics",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRefreshDashboard = async () => {

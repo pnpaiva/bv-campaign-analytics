@@ -97,7 +97,7 @@ export const useCampaigns = () => {
           campaign_date: campaignData.campaign_date,
           deal_value: campaignData.deal_value,
           user_id: user.id,
-          status: 'analyzing', // Set to analyzing immediately
+          status: 'analyzing',
         })
         .select(`
           *,
@@ -110,7 +110,6 @@ export const useCampaigns = () => {
 
       if (error) throw error;
       
-      // Type cast the response to match our Campaign interface
       const typedCampaign: Campaign = {
         ...data,
         status: data.status as 'analyzing' | 'completed' | 'draft',
@@ -122,72 +121,42 @@ export const useCampaigns = () => {
       
       setCampaigns(prev => [typedCampaign, ...prev]);
 
-      // If content URLs are provided, create analytics data entries first, then trigger jobs
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
         console.log('Processing content URLs:', campaignData.content_urls);
         
+        // Use direct analytics instead of the complex job system
         for (const contentUrl of campaignData.content_urls) {
           if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
             try {
-              console.log('Creating analytics entry for:', contentUrl.url);
+              console.log('Fetching direct analytics for:', contentUrl.url);
               
-              // First create an analytics data entry with the URL
-              const { error: analyticsError } = await supabase
-                .from('analytics_data')
-                .insert({
+              // Call the new direct analytics function
+              const { data: analyticsData, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
+                body: {
                   campaign_id: typedCampaign.id,
-                  platform: contentUrl.platform.toLowerCase(),
-                  content_url: contentUrl.url,
-                  views: 0,
-                  engagement: 0,
-                  likes: 0,
-                  comments: 0,
-                  engagement_rate: 0,
-                  fetched_at: new Date().toISOString()
-                });
+                  video_url: contentUrl.url
+                }
+              });
 
               if (analyticsError) {
-                console.error('Failed to create analytics entry:', analyticsError);
+                console.error('Failed to fetch direct analytics:', analyticsError);
+              } else {
+                console.log('Direct analytics successful:', analyticsData);
               }
-
-              // Then fetch real analytics data
-              console.log('Fetching YouTube analytics for:', contentUrl.url);
-              await fetchYouTubeAnalytics(typedCampaign.id, contentUrl.url);
             } catch (analyticsError) {
               console.error('Analytics fetch failed for URL:', contentUrl.url, analyticsError);
             }
           }
         }
 
-        // Create analytics jobs for automated processing
-        for (const contentUrl of campaignData.content_urls) {
-          if (contentUrl.url.trim()) {
-            try {
-              const { error: jobError } = await supabase
-                .from('analytics_jobs')
-                .insert({
-                  campaign_id: typedCampaign.id,
-                  platform: contentUrl.platform.toLowerCase(),
-                  status: 'pending'
-                });
-
-              if (jobError) {
-                console.error('Failed to create analytics job:', jobError);
-              }
-            } catch (jobError) {
-              console.error('Job creation failed:', jobError);
-            }
-          }
-        }
-
-        // Refresh campaigns after a short delay to get updated analytics
+        // Refresh campaigns after a short delay
         setTimeout(async () => {
           await fetchCampaigns();
-        }, 3000);
+        }, 2000);
 
         toast({
           title: "Success",
-          description: "Campaign created and analytics are being fetched",
+          description: "Campaign created and analytics are being fetched directly",
         });
       } else {
         toast({
@@ -210,27 +179,38 @@ export const useCampaigns = () => {
 
   const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube'], videoUrl?: string) => {
     try {
-      // If we have a specific YouTube URL, use the direct YouTube analytics function
       if (videoUrl && platforms.includes('youtube')) {
-        console.log('Triggering YouTube analytics for specific URL:', videoUrl);
-        await fetchYouTubeAnalytics(campaignId, videoUrl);
+        console.log('Triggering direct analytics for specific URL:', videoUrl);
+        
+        // Use the new direct analytics function
+        const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
+          body: {
+            campaign_id: campaignId,
+            video_url: videoUrl
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Direct analytics result:', data);
       } else {
-        // Use the general analytics trigger
+        // Fallback to existing method
         await triggerAnalytics(campaignId, platforms);
       }
       
-      // Add a small delay to allow backend processing
+      // Refresh campaigns to get updated data
       setTimeout(async () => {
-        // Refresh campaigns to get updated data
         await fetchCampaigns();
-      }, 2000);
+      }, 1000);
       
       toast({
         title: "Success",
-        description: "Analytics refresh started",
+        description: "Analytics refreshed using direct method",
       });
     } catch (error) {
-      console.error('Error triggering campaign analytics:', error);
+      console.error('Error triggering direct analytics:', error);
       toast({
         title: "Error",
         description: "Failed to refresh analytics",
