@@ -224,6 +224,7 @@ export const useCampaigns = () => {
     creator_id?: string;
     campaign_date?: string;
     deal_value?: number;
+    content_urls?: { platform: string; url: string }[];
   }) => {
     if (!user) {
       toast({
@@ -235,9 +236,17 @@ export const useCampaigns = () => {
     }
 
     try {
+      // First update the basic campaign data
+      const updateData = {
+        brand_name: campaignData.brand_name,
+        creator_id: campaignData.creator_id,
+        campaign_date: campaignData.campaign_date,
+        deal_value: campaignData.deal_value,
+      };
+
       const { data, error } = await supabase
         .from('campaigns')
-        .update(campaignData)
+        .update(updateData)
         .eq('id', campaignId)
         .eq('user_id', user.id)
         .select(`
@@ -264,11 +273,50 @@ export const useCampaigns = () => {
       setCampaigns(prev => prev.map(campaign => 
         campaign.id === campaignId ? typedCampaign : campaign
       ));
-      
-      toast({
-        title: "Success",
-        description: "Campaign updated successfully",
-      });
+
+      // Process new content URLs if provided
+      if (campaignData.content_urls && campaignData.content_urls.length > 0) {
+        console.log('Processing updated content URLs:', campaignData.content_urls);
+        
+        // Process YouTube URLs for analytics
+        for (const contentUrl of campaignData.content_urls) {
+          if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
+            try {
+              console.log('Fetching analytics for updated URL:', contentUrl.url);
+              
+              const { data: analyticsData, error: analyticsError } = await supabase.functions.invoke('direct-youtube-analytics', {
+                body: {
+                  campaign_id: campaignId,
+                  video_url: contentUrl.url
+                }
+              });
+
+              if (analyticsError) {
+                console.error('Failed to fetch analytics for updated URL:', analyticsError);
+              } else {
+                console.log('Analytics successful for updated URL:', analyticsData);
+              }
+            } catch (analyticsError) {
+              console.error('Analytics fetch failed for updated URL:', contentUrl.url, analyticsError);
+            }
+          }
+        }
+
+        // Refresh campaigns after processing URLs
+        setTimeout(async () => {
+          await fetchCampaigns();
+        }, 2000);
+
+        toast({
+          title: "Success",
+          description: "Campaign updated and analytics are being refreshed",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Campaign updated successfully",
+        });
+      }
       
       return typedCampaign;
     } catch (error) {
