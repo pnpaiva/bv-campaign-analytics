@@ -8,8 +8,6 @@ import { useCampaigns } from "@/hooks/useCampaigns";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
-import { DashboardFilters } from "@/components/DashboardFilters";
-import { DashboardFilters as DashboardFiltersType } from "@/hooks/useDashboardAnalytics";
 
 export default function Campaigns() {
   const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics } = useCampaigns();
@@ -17,7 +15,6 @@ export default function Campaigns() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [filteredCampaigns, setFilteredCampaigns] = useState(campaigns);
 
   const handleCreateCampaign = async (campaignData) => {
     await createCampaign(campaignData);
@@ -50,43 +47,6 @@ export default function Campaigns() {
   const handleCardClick = (campaign) => {
     setSelectedCampaign(campaign);
     setDetailDialogOpen(true);
-  };
-
-  const handleFiltersChange = (filters: DashboardFiltersType) => {
-    // Filter campaigns based on the applied filters
-    let filtered = campaigns;
-
-    if (filters.startDate) {
-      filtered = filtered.filter(campaign => 
-        new Date(campaign.campaign_date) >= new Date(filters.startDate!)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(campaign => 
-        new Date(campaign.campaign_date) <= new Date(filters.endDate!)
-      );
-    }
-
-    if (filters.creatorIds && filters.creatorIds.length > 0) {
-      filtered = filtered.filter(campaign => 
-        filters.creatorIds!.includes(campaign.creator_id)
-      );
-    }
-
-    if (filters.clientIds && filters.clientIds.length > 0) {
-      filtered = filtered.filter(campaign => 
-        campaign.client_id && filters.clientIds!.includes(campaign.client_id)
-      );
-    }
-
-    if (filters.campaignIds && filters.campaignIds.length > 0) {
-      filtered = filtered.filter(campaign => 
-        filters.campaignIds!.includes(campaign.id)
-      );
-    }
-
-    setFilteredCampaigns(filtered);
   };
 
   const getStatusColor = (status) => {
@@ -127,15 +87,8 @@ export default function Campaigns() {
           </Button>
         </div>
 
-        <div className="mb-6">
-          <DashboardFilters 
-            onFiltersChange={handleFiltersChange}
-            loading={loading}
-          />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCampaigns.map((campaign) => (
+          {campaigns.map((campaign) => (
             <Card 
               key={campaign.id} 
               className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -250,7 +203,7 @@ export default function Campaigns() {
           ))}
         </div>
 
-        {filteredCampaigns.length === 0 && (
+        {campaigns.length === 0 && (
           <div className="text-center py-20">
             <div className="text-gray-400 mb-4">
               <Calendar className="h-16 w-16 mx-auto" />
