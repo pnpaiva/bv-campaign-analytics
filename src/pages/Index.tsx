@@ -13,6 +13,7 @@ import { AuthPage } from "@/components/AuthPage";
 import { CreatorSelect } from "@/components/CreatorSelect";
 import { DashboardFilters } from "@/components/DashboardFilters";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
+import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -48,6 +49,7 @@ const Index = () => {
   // Edit/Delete state
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
+  const [viewingCampaign, setViewingCampaign] = useState<any>(null);
 
   if (authLoading) {
     return (
@@ -453,7 +455,11 @@ const Index = () => {
 
             <div className="grid gap-6">
               {campaigns.map((campaign) => (
-                <Card key={campaign.id} className="hover:shadow-md transition-shadow">
+                <Card 
+                  key={campaign.id} 
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setViewingCampaign(campaign)}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -479,7 +485,7 @@ const Index = () => {
                           <p className="font-medium">{campaign.deal_value ? `$${campaign.deal_value.toLocaleString()}` : 'N/A'}</p>
                           <p>Deal Value</p>
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -622,6 +628,13 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* Campaign Detail Dialog */}
+      <CampaignDetailDialog
+        campaign={viewingCampaign}
+        open={!!viewingCampaign}
+        onOpenChange={(open) => !open && setViewingCampaign(null)}
+      />
 
       {/* Edit Campaign Dialog */}
       <EditCampaignDialog

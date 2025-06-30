@@ -270,10 +270,6 @@ export const useCampaigns = () => {
         } : undefined
       };
       
-      setCampaigns(prev => prev.map(campaign => 
-        campaign.id === campaignId ? typedCampaign : campaign
-      ));
-
       // Process new content URLs if provided
       if (campaignData.content_urls && campaignData.content_urls.length > 0) {
         console.log('Processing updated content URLs:', campaignData.content_urls);
@@ -302,16 +298,21 @@ export const useCampaigns = () => {
           }
         }
 
-        // Refresh campaigns after processing URLs
+        // Refresh campaigns after processing URLs to get updated totals
         setTimeout(async () => {
           await fetchCampaigns();
-        }, 2000);
+        }, 3000);
 
         toast({
           title: "Success",
           description: "Campaign updated and analytics are being refreshed",
         });
       } else {
+        // Update local state immediately if no URLs to process
+        setCampaigns(prev => prev.map(campaign => 
+          campaign.id === campaignId ? typedCampaign : campaign
+        ));
+        
         toast({
           title: "Success",
           description: "Campaign updated successfully",
