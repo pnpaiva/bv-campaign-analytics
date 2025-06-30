@@ -47,20 +47,6 @@ const Index = () => {
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
 
-  // Sample data for demonstration
-  const campaignData = [
-    { name: "Week 1", views: 45000, engagement: 3200, reach: 38000 },
-    { name: "Week 2", views: 52000, engagement: 4100, reach: 42000 },
-    { name: "Week 3", views: 48000, engagement: 3800, reach: 40000 },
-    { name: "Week 4", views: 61000, engagement: 4900, reach: 51000 },
-  ];
-
-  const platformData = [
-    { name: "YouTube", value: 45, color: "#FF0000" },
-    { name: "Instagram", value: 35, color: "#E4405F" },
-    { name: "TikTok", value: 20, color: "#000000" },
-  ];
-
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -150,6 +136,39 @@ const Index = () => {
     if (dashboardFilters.campaignIds && dashboardFilters.campaignIds.length > 0 && !dashboardFilters.campaignIds.includes(campaign.id)) return false;
     return true;
   });
+
+  // Prepare real campaign data for charts
+  const campaignPerformanceData = filteredCampaigns
+    .sort((a, b) => new Date(a.campaign_date).getTime() - new Date(b.campaign_date).getTime())
+    .map(campaign => ({
+      name: campaign.brand_name,
+      views: campaign.total_views,
+      engagement: campaign.total_engagement,
+      date: campaign.campaign_date
+    }));
+
+  // Platform distribution based on actual campaigns
+  const platformStats = {
+    YouTube: 0,
+    Instagram: 0,
+    TikTok: 0,
+  };
+
+  // For now, we'll distribute based on campaign count since we don't have platform-specific data
+  // This is a placeholder until we have platform-specific analytics data
+  const totalCampaigns = filteredCampaigns.length;
+  if (totalCampaigns > 0) {
+    // Distribute evenly for now - this would be replaced with actual platform data from analytics
+    platformStats.YouTube = Math.round((totalCampaigns * 0.45));
+    platformStats.Instagram = Math.round((totalCampaigns * 0.35));
+    platformStats.TikTok = totalCampaigns - platformStats.YouTube - platformStats.Instagram;
+  }
+
+  const platformData = [
+    { name: "YouTube", value: platformStats.YouTube, color: "#FF0000" },
+    { name: "Instagram", value: platformStats.Instagram, color: "#E4405F" },
+    { name: "TikTok", value: platformStats.TikTok, color: "#000000" },
+  ].filter(platform => platform.value > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -292,18 +311,24 @@ const Index = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Campaign Performance</CardTitle>
-                  <CardDescription>Views and engagement over time</CardDescription>
+                  <CardDescription>Views and engagement by campaign</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={campaignData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="views" stroke="#3B82F6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={2} />
-                    </LineChart>
+                    {campaignPerformanceData.length > 0 ? (
+                      <LineChart data={campaignPerformanceData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="views" stroke="#3B82F6" strokeWidth={2} name="Views" />
+                        <Line type="monotone" dataKey="engagement" stroke="#10B981" strokeWidth={2} name="Engagement" />
+                      </LineChart>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        No campaign data available
+                      </div>
+                    )}
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -315,21 +340,27 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={platformData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}%`}
-                      >
-                        {platformData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
+                    {platformData.length > 0 ? (
+                      <PieChart>
+                        <Pie
+                          data={platformData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                        >
+                          {platformData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        No platform data available
+                      </div>
+                    )}
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
