@@ -15,12 +15,13 @@ interface MasterCampaignSelectProps {
 }
 
 export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSelectProps) => {
-  const { campaigns } = useCampaigns();
+  const { campaigns, createCampaign } = useCampaigns();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newMasterCampaignName, setNewMasterCampaignName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Get unique master campaign names from existing campaigns
   const masterCampaignNames = [...new Set(
@@ -47,18 +48,42 @@ export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSel
       });
       return;
     }
-    
-    // Just add the name to the current selection
-    onValueChange(newMasterCampaignName.trim());
-    setNewMasterCampaignName("");
-    setStartDate("");
-    setEndDate("");
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Master campaign name ready to use",
-    });
+
+    setSaving(true);
+    try {
+      // Create a master campaign template record if dates are provided
+      if (startDate && endDate) {
+        await createCampaign({
+          brand_name: `Master Campaign: ${newMasterCampaignName.trim()}`,
+          creator_id: "00000000-0000-0000-0000-000000000000", // Placeholder UUID
+          campaign_date: startDate,
+          master_campaign_name: newMasterCampaignName.trim(),
+          master_campaign_start_date: startDate,
+          master_campaign_end_date: endDate,
+        });
+      }
+      
+      // Set the name to the current selection
+      onValueChange(newMasterCampaignName.trim());
+      setNewMasterCampaignName("");
+      setStartDate("");
+      setEndDate("");
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: startDate && endDate ? "Master campaign created successfully" : "Master campaign name ready to use",
+      });
+    } catch (error) {
+      console.error('Error creating master campaign:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create master campaign",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -92,12 +117,12 @@ export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSel
             <DialogHeader>
               <DialogTitle>Create Master Campaign</DialogTitle>
               <DialogDescription>
-                Create a master campaign name to organize related campaigns.
+                Create a master campaign name to organize related campaigns. Dates are optional.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="master-campaign-name">Master Campaign Name</Label>
+                <Label htmlFor="master-campaign-name">Master Campaign Name *</Label>
                 <Input
                   id="master-campaign-name"
                   value={newMasterCampaignName}
@@ -127,11 +152,22 @@ export const MasterCampaignSelect = ({ value, onValueChange }: MasterCampaignSel
               </div>
               
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setNewMasterCampaignName("");
+                    setStartDate("");
+                    setEndDate("");
+                    setIsDialogOpen(false);
+                  }}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateMasterCampaign}>
-                  Create Master Campaign
+                <Button 
+                  onClick={handleCreateMasterCampaign}
+                  disabled={saving || !newMasterCampaignName.trim()}
+                >
+                  {saving ? "Creating..." : "Create Master Campaign"}
                 </Button>
               </div>
             </div>

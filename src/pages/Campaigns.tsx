@@ -70,7 +70,7 @@ export default function Campaigns() {
 
   // Filter campaigns to show only regular campaigns (exclude master campaign templates)
   const childCampaigns = campaigns.filter(campaign => 
-    !campaign.master_campaign_name || campaign.creator_id !== "00000000-0000-0000-0000-000000000000"
+    campaign.creator_id !== "00000000-0000-0000-0000-000000000000"
   );
 
   if (loading) {
