@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { CreatorSelect } from "@/components/CreatorSelect";
 import { ClientSelect } from "@/components/ClientSelect";
 import { MasterCampaignSelect } from "@/components/MasterCampaignSelect";
 import { Campaign } from "@/hooks/useCampaigns";
-import { Youtube, Instagram, Trash2, Plus, Check } from "lucide-react";
+import { Youtube, Instagram, Trash2, Plus, Check, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EditCampaignDialogProps {
@@ -34,7 +35,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
   const [campaignDate, setCampaignDate] = useState("");
   const [campaignMonth, setCampaignMonth] = useState("");
   const [dealValue, setDealValue] = useState("");
-  const [contentUrls, setContentUrls] = useState<{ platform: string; url: string; confirmed: boolean }[]>([]);
+  const [contentUrls, setContentUrls] = useState<{ platform: string; url: string; confirmed: boolean; existing?: boolean }[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingUrls, setLoadingUrls] = useState(false);
 
@@ -52,7 +53,8 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
       const urls = data.map(item => ({
         platform: item.platform,
         url: item.content_url,
-        confirmed: true // Existing URLs are already confirmed
+        confirmed: true,
+        existing: true // Mark as existing URL
       }));
       
       setContentUrls(urls);
@@ -70,7 +72,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
       setBrandName(campaign.brand_name);
       setSelectedCreator(campaign.creator_id);
       setSelectedClient(campaign.client_id || "");
-      setSelectedMasterCampaign(campaign.master_campaign_id || "");
+      setSelectedMasterCampaign(campaign.master_campaign_name || "");
       setCampaignDate(campaign.campaign_date);
       setCampaignMonth(campaign.campaign_month || "");
       setDealValue(campaign.deal_value?.toString() || "");
@@ -81,7 +83,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
   }, [campaign, open]);
 
   const addContentUrl = (platform: string) => {
-    setContentUrls(prev => [...prev, { platform, url: "", confirmed: false }]);
+    setContentUrls(prev => [...prev, { platform, url: "", confirmed: false, existing: false }]);
   };
 
   const updateContentUrl = (index: number, url: string) => {
@@ -113,7 +115,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     
     setSaving(true);
     try {
-      const confirmedUrls = contentUrls.filter(url => url.confirmed && url.url.trim() !== '');
+      const confirmedUrls = contentUrls.filter(url => url.confirmed && url.url.trim() !== '' && !url.existing);
       await onSave({
         brand_name: brandName,
         creator_id: selectedCreator,
@@ -136,7 +138,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     }
     acc[url.platform].push({ ...url, index });
     return acc;
-  }, {} as Record<string, Array<{ platform: string; url: string; confirmed: boolean; index: number }>>);
+  }, {} as Record<string, Array<{ platform: string; url: string; confirmed: boolean; existing?: boolean; index: number }>>);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -216,10 +218,20 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="YouTube URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
-                          disabled={item.confirmed}
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''} ${item.existing ? 'border-blue-500 bg-blue-50' : ''}`}
+                          disabled={item.confirmed || item.existing}
                         />
-                        {!item.confirmed ? (
+                        {item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(item.url, '_blank')}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!item.confirmed && !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -229,7 +241,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             <Check className="h-4 w-4" />
                           </Button>
-                        ) : (
+                        ) : !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -238,15 +250,17 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             Edit
                           </Button>
+                        ) : null}
+                        {!item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => removeContentUrl(item.index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeContentUrl(item.index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
@@ -265,10 +279,20 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="Instagram URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
-                          disabled={item.confirmed}
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''} ${item.existing ? 'border-blue-500 bg-blue-50' : ''}`}
+                          disabled={item.confirmed || item.existing}
                         />
-                        {!item.confirmed ? (
+                        {item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(item.url, '_blank')}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!item.confirmed && !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -278,7 +302,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             <Check className="h-4 w-4" />
                           </Button>
-                        ) : (
+                        ) : !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -287,15 +311,17 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             Edit
                           </Button>
+                        ) : null}
+                        {!item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => removeContentUrl(item.index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeContentUrl(item.index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
@@ -314,10 +340,20 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           placeholder="TikTok URL"
                           value={item.url}
                           onChange={(e) => updateContentUrl(item.index, e.target.value)}
-                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''}`}
-                          disabled={item.confirmed}
+                          className={`flex-1 ${item.confirmed ? 'border-green-500 bg-green-50' : ''} ${item.existing ? 'border-blue-500 bg-blue-50' : ''}`}
+                          disabled={item.confirmed || item.existing}
                         />
-                        {!item.confirmed ? (
+                        {item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(item.url, '_blank')}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!item.confirmed && !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -327,7 +363,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             <Check className="h-4 w-4" />
                           </Button>
-                        ) : (
+                        ) : !item.existing ? (
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -336,15 +372,17 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
                           >
                             Edit
                           </Button>
+                        ) : null}
+                        {!item.existing && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => removeContentUrl(item.index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => removeContentUrl(item.index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
