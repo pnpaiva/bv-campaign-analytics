@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 export interface Campaign {
   id: string;
@@ -26,6 +27,7 @@ export const useCampaigns = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { triggerAnalytics } = useAnalytics();
 
   const fetchCampaigns = async () => {
     if (!user) {
@@ -75,6 +77,7 @@ export const useCampaigns = () => {
     creator_id: string;
     campaign_date: string;
     deal_value?: number;
+    content_urls?: { platform: string; url: string }[];
   }) => {
     if (!user) {
       toast({
@@ -89,7 +92,10 @@ export const useCampaigns = () => {
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
-          ...campaignData,
+          brand_name: campaignData.brand_name,
+          creator_id: campaignData.creator_id,
+          campaign_date: campaignData.campaign_date,
+          deal_value: campaignData.deal_value,
           user_id: user.id,
         })
         .select(`
@@ -114,10 +120,30 @@ export const useCampaigns = () => {
       };
       
       setCampaigns(prev => [typedCampaign, ...prev]);
-      toast({
-        title: "Success",
-        description: "Campaign created successfully",
-      });
+
+      // If content URLs are provided, trigger analytics for each platform
+      if (campaignData.content_urls && campaignData.content_urls.length > 0) {
+        const platforms = campaignData.content_urls.map(url => url.platform.toLowerCase());
+        try {
+          await triggerAnalytics(typedCampaign.id, platforms);
+          toast({
+            title: "Success",
+            description: "Campaign created and analytics job started",
+          });
+        } catch (analyticsError) {
+          console.error('Analytics trigger failed:', analyticsError);
+          toast({
+            title: "Campaign Created",
+            description: "Campaign created but analytics fetch failed. You can retry manually.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Campaign created successfully",
+        });
+      }
       
       return typedCampaign;
     } catch (error) {
@@ -128,6 +154,27 @@ export const useCampaigns = () => {
         variant: "destructive",
       });
       return null;
+    }
+  };
+
+  const triggerCampaignAnalytics = async (campaignId: string, platforms: string[] = ['youtube']) => {
+    try {
+      await triggerAnalytics(campaignId, platforms);
+      
+      // Refresh campaigns to get updated data
+      await fetchCampaigns();
+      
+      toast({
+        title: "Success",
+        description: "Analytics refresh started",
+      });
+    } catch (error) {
+      console.error('Error triggering campaign analytics:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh analytics",
+        variant: "destructive",
+      });
     }
   };
 
@@ -264,6 +311,7 @@ export const useCampaigns = () => {
     updateCampaign,
     deleteCampaign,
     getTotalEngagement,
+    triggerCampaignAnalytics,
     refetch: fetchCampaigns,
   };
 };

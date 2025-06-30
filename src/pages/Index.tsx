@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { Calendar, TrendingUp, Users, DollarSign, Youtube, Instagram, FileText, Download, Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Calendar, TrendingUp, Users, DollarSign, Youtube, Instagram, FileText, Download, Plus, Search, Edit, Trash2, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCampaigns } from "@/hooks/useCampaigns";
@@ -27,7 +27,7 @@ import {
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { campaigns, createCampaign, updateCampaign, deleteCampaign, getTotalEngagement } = useCampaigns();
+  const { campaigns, createCampaign, updateCampaign, deleteCampaign, getTotalEngagement, triggerCampaignAnalytics } = useCampaigns();
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState("dashboard");
   const [dashboardFilters, setDashboardFilters] = useState<{
@@ -77,6 +77,7 @@ const Index = () => {
       creator_id: selectedCreator,
       campaign_date: campaignDate,
       deal_value: dealValue ? parseFloat(dealValue) : undefined,
+      content_urls: contentUrls.filter(url => url.url.trim() !== ''),
     });
 
     if (campaign) {
@@ -87,6 +88,10 @@ const Index = () => {
       setContentUrls([]);
       setCurrentView("campaigns");
     }
+  };
+
+  const handleRefreshAnalytics = async (campaignId: string) => {
+    await triggerCampaignAnalytics(campaignId, ['youtube']);
   };
 
   const handleEditCampaign = async (campaignData: any) => {
@@ -414,6 +419,14 @@ const Index = () => {
                           <p>Deal Value</p>
                         </div>
                         <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleRefreshAnalytics(campaign.id)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Refresh
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
