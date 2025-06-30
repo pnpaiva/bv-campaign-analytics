@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronDown, X } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCreators } from "@/hooks/useCreators";
 import { useClients } from "@/hooks/useClients";
@@ -60,6 +62,72 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
     }
   };
 
+  const removeSelectedItem = (value: string, currentSelection: string[], setter: (selection: string[]) => void) => {
+    setter(currentSelection.filter(item => item !== value));
+  };
+
+  const MultiSelectDropdown = ({ 
+    label, 
+    items, 
+    selectedItems, 
+    onToggle, 
+    getItemLabel,
+    getItemValue 
+  }: {
+    label: string;
+    items: any[];
+    selectedItems: string[];
+    onToggle: (value: string) => void;
+    getItemLabel: (item: any) => string;
+    getItemValue: (item: any) => string;
+  }) => (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            {selectedItems.length > 0 ? `${selectedItems.length} selected` : `Select ${label.toLowerCase()}`}
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-full max-h-64 overflow-y-auto">
+          {items.map((item) => (
+            <DropdownMenuCheckboxItem
+              key={getItemValue(item)}
+              checked={selectedItems.includes(getItemValue(item))}
+              onCheckedChange={() => onToggle(getItemValue(item))}
+            >
+              {getItemLabel(item)}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      {/* Show selected items as badges */}
+      {selectedItems.length > 0 && (
+        <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+          {selectedItems.map((selectedId) => {
+            const item = items.find(i => getItemValue(i) === selectedId);
+            return (
+              <Badge key={selectedId} variant="secondary" className="gap-1">
+                {item ? getItemLabel(item) : selectedId}
+                <X 
+                  className="h-3 w-3 cursor-pointer hover:text-red-500" 
+                  onClick={() => removeSelectedItem(selectedId, selectedItems, 
+                    label === 'Creators' ? setSelectedCreators :
+                    label === 'Clients' ? setSelectedClients :
+                    label === 'Campaigns' ? setSelectedCampaigns :
+                    setSelectedPlatforms
+                  )}
+                />
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -88,72 +156,45 @@ export const DashboardFilters = ({ onFiltersChange, loading }: DashboardFiltersP
           </div>
         </div>
 
-        {/* Creators Filter */}
-        <div className="space-y-2">
-          <Label>Creators</Label>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-            {creators.map((creator) => (
-              <Badge
-                key={creator.id}
-                variant={selectedCreators.includes(creator.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => toggleSelection(creator.id, selectedCreators, setSelectedCreators)}
-              >
-                {creator.name}
-              </Badge>
-            ))}
-          </div>
+        {/* Multi-select dropdowns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MultiSelectDropdown
+            label="Creators"
+            items={creators}
+            selectedItems={selectedCreators}
+            onToggle={(value) => toggleSelection(value, selectedCreators, setSelectedCreators)}
+            getItemLabel={(creator) => creator.name}
+            getItemValue={(creator) => creator.id}
+          />
+
+          <MultiSelectDropdown
+            label="Clients"
+            items={clients}
+            selectedItems={selectedClients}
+            onToggle={(value) => toggleSelection(value, selectedClients, setSelectedClients)}
+            getItemLabel={(client) => client.name}
+            getItemValue={(client) => client.id}
+          />
         </div>
 
-        {/* Clients Filter */}
-        <div className="space-y-2">
-          <Label>Clients</Label>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-            {clients.map((client) => (
-              <Badge
-                key={client.id}
-                variant={selectedClients.includes(client.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => toggleSelection(client.id, selectedClients, setSelectedClients)}
-              >
-                {client.name}
-              </Badge>
-            ))}
-          </div>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MultiSelectDropdown
+            label="Campaigns"
+            items={campaigns.slice(0, 50)} // Limit to prevent performance issues
+            selectedItems={selectedCampaigns}
+            onToggle={(value) => toggleSelection(value, selectedCampaigns, setSelectedCampaigns)}
+            getItemLabel={(campaign) => `${campaign.brand_name} - ${campaign.creators?.name}`}
+            getItemValue={(campaign) => campaign.id}
+          />
 
-        {/* Campaigns Filter */}
-        <div className="space-y-2">
-          <Label>Campaigns</Label>
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-            {campaigns.slice(0, 20).map((campaign) => (
-              <Badge
-                key={campaign.id}
-                variant={selectedCampaigns.includes(campaign.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => toggleSelection(campaign.id, selectedCampaigns, setSelectedCampaigns)}
-              >
-                {campaign.brand_name} - {campaign.creators?.name}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Platforms Filter */}
-        <div className="space-y-2">
-          <Label>Platforms</Label>
-          <div className="flex flex-wrap gap-2">
-            {platforms.map((platform) => (
-              <Badge
-                key={platform}
-                variant={selectedPlatforms.includes(platform) ? "default" : "outline"}
-                className="cursor-pointer capitalize"
-                onClick={() => toggleSelection(platform, selectedPlatforms, setSelectedPlatforms)}
-              >
-                {platform}
-              </Badge>
-            ))}
-          </div>
+          <MultiSelectDropdown
+            label="Platforms"
+            items={platforms.map(p => ({ name: p, id: p }))}
+            selectedItems={selectedPlatforms}
+            onToggle={(value) => toggleSelection(value, selectedPlatforms, setSelectedPlatforms)}
+            getItemLabel={(platform) => platform.name.charAt(0).toUpperCase() + platform.name.slice(1)}
+            getItemValue={(platform) => platform.id}
+          />
         </div>
 
         {/* Action Buttons */}
