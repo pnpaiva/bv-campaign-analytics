@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,9 +11,11 @@ import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 import { MasterCampaignManager } from "@/components/MasterCampaignManager";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 
 export default function Campaigns() {
-  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics, refreshAllCampaigns } = useCampaigns();
+  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics } = useCampaigns();
+  const { loading: analyticsLoading, refreshCampaignAnalytics, refreshAllCampaigns } = useCampaignAnalytics();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -76,12 +77,13 @@ export default function Campaigns() {
 
   const handleRefreshAnalytics = async (campaign, e) => {
     e.stopPropagation();
-    await triggerCampaignAnalytics(campaign.id);
+    await refreshCampaignAnalytics(campaign.id);
   };
 
   const handleRefreshAll = async () => {
     setRefreshingAll(true);
-    await refreshAllCampaigns();
+    const campaignIds = childCampaigns.map(c => c.id);
+    await refreshAllCampaigns(campaignIds);
     setRefreshingAll(false);
   };
 
@@ -147,10 +149,10 @@ export default function Campaigns() {
               variant="outline" 
               size="lg" 
               className="gap-2"
-              disabled={refreshingAll}
+              disabled={refreshingAll || analyticsLoading}
             >
-              <RefreshCw className={`h-5 w-5 ${refreshingAll ? 'animate-spin' : ''}`} />
-              {refreshingAll ? 'Refreshing...' : 'Refresh All'}
+              <RefreshCw className={`h-5 w-5 ${(refreshingAll || analyticsLoading) ? 'animate-spin' : ''}`} />
+              {(refreshingAll || analyticsLoading) ? 'Refreshing...' : 'Refresh All'}
             </Button>
             <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
               <Plus className="h-5 w-5" />
@@ -303,8 +305,9 @@ export default function Campaigns() {
                           size="sm"
                           onClick={(e) => handleRefreshAnalytics(campaign, e)}
                           className="flex-1"
+                          disabled={analyticsLoading}
                         >
-                          Refresh
+                          {analyticsLoading ? 'Refreshing...' : 'Refresh'}
                         </Button>
                         <Button
                           variant="destructive"

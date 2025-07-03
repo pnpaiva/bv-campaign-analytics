@@ -12,6 +12,7 @@ import CreatorMetrics from "@/components/CreatorMetrics";
 import DailyAnalyticsTable from "@/components/DailyAnalyticsTable";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
+import RosterAnalyticsTable from "@/components/RosterAnalyticsTable";
 
 const RosterDashboard = () => {
   const { creators, loading } = useRoster();
@@ -301,21 +302,28 @@ const RosterDashboard = () => {
               </Card>
             </div>
 
-            {/* Daily Analytics Table */}
+            {/* Enhanced Roster Analytics Table */}
             <div className="mb-8">
-              <DailyAnalyticsTable
+              <RosterAnalyticsTable
                 data={analyticsData}
                 loading={analyticsLoading}
               />
             </div>
 
-            {/* Analytics Chart */}
+            {/* Keep existing Analytics Chart but rename it */}
             <div className="mb-8">
-              <AnalyticsChart 
-                data={analyticsData} 
-                selectedPlatform={selectedPlatform}
-                loading={analyticsLoading}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Channel Growth Trends</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AnalyticsChart 
+                    data={analyticsData} 
+                    selectedPlatform={selectedPlatform}
+                    loading={analyticsLoading}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
             {/* Creator Metrics */}
