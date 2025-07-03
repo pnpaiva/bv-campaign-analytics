@@ -1,0 +1,2 @@
+-- Update existing YOUTUBE_API_KEY secret or ensure it exists
+-- This will be handled by the secret form below

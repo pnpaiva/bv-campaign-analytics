@@ -461,7 +461,9 @@ export type Database = {
       }
       youtube_analytics: {
         Row: {
+          channel_handle: string | null
           channel_id: string | null
+          channel_name: string | null
           comments: number | null
           created_at: string
           creator_roster_id: string
@@ -479,7 +481,9 @@ export type Database = {
           watch_time_hours: number | null
         }
         Insert: {
+          channel_handle?: string | null
           channel_id?: string | null
+          channel_name?: string | null
           comments?: number | null
           created_at?: string
           creator_roster_id: string
@@ -497,7 +501,9 @@ export type Database = {
           watch_time_hours?: number | null
         }
         Update: {
+          channel_handle?: string | null
           channel_id?: string | null
+          channel_name?: string | null
           comments?: number | null
           created_at?: string
           creator_roster_id?: string
@@ -639,6 +645,18 @@ export type Database = {
       }
       update_campaign_totals: {
         Args: { campaign_uuid: string }
+        Returns: undefined
+      }
+      update_youtube_channel_analytics: {
+        Args: {
+          p_creator_roster_id: string
+          p_channel_handle: string
+          p_channel_id?: string
+          p_channel_name?: string
+          p_subscribers?: number
+          p_total_views?: number
+          p_video_count?: number
+        }
         Returns: undefined
       }
     }
