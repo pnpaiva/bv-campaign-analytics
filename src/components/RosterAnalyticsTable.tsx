@@ -15,12 +15,24 @@ interface RosterAnalyticsData {
   videosPosted?: number;
 }
 
+interface CreatorAnalyticsData {
+  creator_id: string;
+  creator_name: string;
+  date: string;
+  views: number;
+  engagement: number;
+  subscribers: number;
+  daily_views: number;
+  daily_engagement: number;
+}
+
 interface RosterAnalyticsTableProps {
   data: RosterAnalyticsData[];
+  creatorData?: CreatorAnalyticsData[];
   loading: boolean;
 }
 
-const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loading }) => {
+const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creatorData = [], loading }) => {
   // Calculate summary statistics
   const calculateSummary = () => {
     if (data.length === 0) return null;
@@ -65,6 +77,34 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
   };
 
   const summary = calculateSummary();
+
+  // Get daily aggregated data from creator data for more accurate daily metrics
+  const getDailyAggregatedData = () => {
+    if (creatorData.length === 0) return data;
+
+    const dailyMap = new Map<string, { date: string; daily_views: number; daily_engagement: number; subscribers: number }>();
+    
+    creatorData.forEach(item => {
+      const existing = dailyMap.get(item.date) || { 
+        date: item.date, 
+        daily_views: 0, 
+        daily_engagement: 0, 
+        subscribers: 0 
+      };
+      
+      existing.daily_views += item.daily_views;
+      existing.daily_engagement += item.daily_engagement;
+      existing.subscribers = Math.max(existing.subscribers, item.subscribers); // Take max for subscribers
+      
+      dailyMap.set(item.date, existing);
+    });
+
+    return Array.from(dailyMap.values()).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  };
+
+  const dailyAggregatedData = getDailyAggregatedData();
 
   // Prepare chart data
   const chartData = data.map(item => ({
@@ -170,7 +210,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
         </div>
       )}
 
-      {/* Daily Performance Table */}
+      {/* Daily Channel Performance Table */}
       <Card>
         <CardHeader>
           <CardTitle>Daily Channel Performance</CardTitle>
@@ -182,15 +222,16 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Subscribers</TableHead>
                 <TableHead className="text-right">Daily Views</TableHead>
+                <TableHead className="text-right">Daily Engagement</TableHead>
                 <TableHead className="text-right">Videos Posted</TableHead>
-                <TableHead className="text-right">Growth</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.slice(-10).map((item, index) => {
-                const prevItem = index > 0 ? data[data.indexOf(item) - 1] : null;
-                const subscriberGrowth = prevItem ? item.subscribers - prevItem.subscribers : 0;
-                const viewsGrowth = prevItem ? item.views - prevItem.views : item.views;
+                // Find corresponding daily data for more accurate daily metrics
+                const dailyData = dailyAggregatedData.find(d => d.date === item.date);
+                const actualDailyViews = dailyData?.daily_views || item.views;
+                const actualDailyEngagement = dailyData?.daily_engagement || item.engagement;
                 
                 return (
                   <TableRow key={item.date}>
@@ -206,27 +247,15 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(item.subscribers).toLocaleString()}
-                      {subscriberGrowth !== 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          {subscriberGrowth > 0 ? '+' : ''}{subscriberGrowth.toLocaleString()}
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {viewsGrowth.toLocaleString()}
+                      {actualDailyViews.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {actualDailyEngagement.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(item.videosPosted || 0)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {subscriberGrowth !== 0 && (
-                        <Badge 
-                          variant={subscriberGrowth > 0 ? "default" : "secondary"}
-                          className={subscriberGrowth > 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                        >
-                          {subscriberGrowth > 0 ? '+' : ''}{subscriberGrowth.toLocaleString()}
-                        </Badge>
-                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -274,12 +303,12 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
 
         <Card>
           <CardHeader>
-            <CardTitle>Videos Posted</CardTitle>
+            <CardTitle>Daily Engagement Trend</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
+                <LineChart data={chartData}>
                   <XAxis 
                     dataKey="date" 
                     tickLine={false}
@@ -290,14 +319,17 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"
+                    tickFormatter={(value) => value.toLocaleString()}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar 
-                    dataKey="videosPosted" 
-                    fill="var(--color-videosPosted)"
-                    radius={[4, 4, 0, 0]}
+                  <Line 
+                    type="monotone" 
+                    dataKey="engagement" 
+                    stroke="var(--color-engagement)"
+                    strokeWidth={2}
+                    dot={{ fill: "var(--color-engagement)", strokeWidth: 2, r: 4 }}
                   />
-                </BarChart>
+                </LineChart>
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>

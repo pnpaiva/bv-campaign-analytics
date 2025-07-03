@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
 import { useRosterAnalytics } from "@/hooks/useRosterAnalytics";
-import { supabase } from "@/integrations/supabase/client";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
@@ -17,8 +17,9 @@ import RosterAnalyticsTable from "@/components/RosterAnalyticsTable";
 const RosterDashboard = () => {
   const { creators, loading } = useRoster();
   const { user } = useAuth();
-  const { analyticsData, loading: analyticsLoading, fetchRosterAnalytics, refreshAnalyticsData } = useRosterAnalytics();
+  const { analyticsData, creatorAnalyticsData, loading: analyticsLoading, fetchRosterAnalytics, refreshAnalyticsData } = useRosterAnalytics();
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
+  const [selectedCreatorIds, setSelectedCreatorIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
     to: new Date()
@@ -44,11 +45,17 @@ const RosterDashboard = () => {
     return Boolean(getStringValue(jsonObj, key));
   }, [getStringValue]);
 
-  // Always use ALL creators - simplified approach
+  // Initialize selected creators when creators load
+  useEffect(() => {
+    if (creators.length > 0 && selectedCreatorIds.length === 0) {
+      setSelectedCreatorIds(creators.map(c => c.id));
+    }
+  }, [creators, selectedCreatorIds.length]);
+
+  // Filter creators by platform
   const filteredCreators = useMemo(() => {
     let filtered = creators;
     
-    // Only filter by platform if not "all"
     if (selectedPlatform !== "all") {
       filtered = filtered.filter(creator => {
         const channelLinks = getJsonObject(creator.channel_links);
@@ -70,33 +77,56 @@ const RosterDashboard = () => {
     return filtered;
   }, [creators, selectedPlatform, getJsonObject, hasValue]);
 
-  // Fetch analytics data when creators or filters change
+  // Get currently selected creators (intersection of filtered and selected)
+  const activeCreators = useMemo(() => {
+    return filteredCreators.filter(creator => selectedCreatorIds.includes(creator.id));
+  }, [filteredCreators, selectedCreatorIds]);
+
+  // Fetch analytics data when active creators or filters change
   useEffect(() => {
-    console.log('Fetching analytics for creators:', filteredCreators.map(c => ({ id: c.id, name: c.creator_name })));
-    
-    if (filteredCreators.length > 0) {
+    if (activeCreators.length > 0) {
+      console.log('Fetching analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
       fetchRosterAnalytics(
-        filteredCreators.map(c => c.id),
+        activeCreators.map(c => c.id),
         dateRange,
         selectedPlatform === "all" ? undefined : selectedPlatform
       );
     }
-  }, [filteredCreators, dateRange, selectedPlatform, fetchRosterAnalytics]);
+  }, [activeCreators, dateRange, selectedPlatform, fetchRosterAnalytics]);
+
+  // Handle creator selection toggle
+  const handleCreatorToggle = (creatorId: string, checked: boolean) => {
+    setSelectedCreatorIds(prev => {
+      if (checked) {
+        return [...prev, creatorId];
+      } else {
+        return prev.filter(id => id !== creatorId);
+      }
+    });
+  };
+
+  // Handle select all/none
+  const handleSelectAll = () => {
+    setSelectedCreatorIds(filteredCreators.map(c => c.id));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedCreatorIds([]);
+  };
 
   // Refresh analytics with real YouTube data
   const handleRefreshAnalytics = async () => {
-    if (filteredCreators.length === 0) return;
+    if (activeCreators.length === 0) return;
     
-    console.log('Refreshing analytics for creators:', filteredCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    console.log('Refreshing analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
     
     setRefreshing(true);
     try {
-      await refreshAnalyticsData(filteredCreators.map(c => c.id));
+      await refreshAnalyticsData(activeCreators.map(c => c.id));
       
-      // Refetch the processed data after a short delay
       setTimeout(() => {
         fetchRosterAnalytics(
-          filteredCreators.map(c => c.id),
+          activeCreators.map(c => c.id),
           dateRange,
           selectedPlatform === "all" ? undefined : selectedPlatform
         );
@@ -132,6 +162,23 @@ const RosterDashboard = () => {
     };
   }, [analyticsData]);
 
+  // Get individual creator metrics
+  const getCreatorMetrics = useCallback((creatorId: string) => {
+    const creatorData = creatorAnalyticsData.filter(d => d.creator_id === creatorId);
+    if (creatorData.length === 0) return null;
+
+    const latestData = creatorData[creatorData.length - 1];
+    const totalViews = creatorData.reduce((sum, item) => sum + (item.views || 0), 0);
+    const totalEngagement = creatorData.reduce((sum, item) => sum + (item.engagement || 0), 0);
+    
+    return {
+      views: totalViews,
+      engagement: totalEngagement,
+      subscribers: latestData?.subscribers || 0,
+      engagementRate: totalViews > 0 ? ((totalEngagement / totalViews) * 100).toFixed(2) : "0.00"
+    };
+  }, [creatorAnalyticsData]);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -144,10 +191,10 @@ const RosterDashboard = () => {
     );
   }
 
-  const totalCreators = filteredCreators.length;
-  const creatorsWithYoutube = filteredCreators.filter(c => hasValue(getJsonObject(c.channel_links), 'youtube')).length;
-  const creatorsWithInstagram = filteredCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'instagram')).length;
-  const creatorsWithTiktok = filteredCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'tiktok')).length;
+  const totalCreators = activeCreators.length;
+  const creatorsWithYoutube = activeCreators.filter(c => hasValue(getJsonObject(c.channel_links), 'youtube')).length;
+  const creatorsWithInstagram = activeCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'instagram')).length;
+  const creatorsWithTiktok = activeCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'tiktok')).length;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -187,6 +234,35 @@ const RosterDashboard = () => {
           </div>
         </div>
 
+        {/* Creator Filter Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex justify-between items-center">
+              <span>Creator Filter</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleSelectAll}>Select All</Button>
+                <Button variant="outline" size="sm" onClick={handleSelectNone}>Select None</Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredCreators.map((creator) => (
+                <div key={creator.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={creator.id}
+                    checked={selectedCreatorIds.includes(creator.id)}
+                    onCheckedChange={(checked) => handleCreatorToggle(creator.id, checked as boolean)}
+                  />
+                  <label htmlFor={creator.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {creator.creator_name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {loading ? (
           <div className="text-center py-8">Loading...</div>
         ) : (
@@ -195,7 +271,7 @@ const RosterDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Creators</CardTitle>
+                  <CardTitle className="text-sm font-medium">Active Creators</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -258,6 +334,7 @@ const RosterDashboard = () => {
             <div className="mb-8">
               <RosterAnalyticsTable
                 data={analyticsData}
+                creatorData={creatorAnalyticsData}
                 loading={analyticsLoading}
               />
             </div>
@@ -284,30 +361,28 @@ const RosterDashboard = () => {
                 <CardTitle>Creator Performance Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
-                {filteredCreators.length === 0 ? (
+                {activeCreators.length === 0 ? (
                   <p className="text-center text-gray-600 py-8">
-                    {selectedPlatform === "all" 
-                      ? "No creators found. Please add creators to your roster."
-                      : `No creators found for ${selectedPlatform}. Try selecting a different platform.`
-                    }
+                    No creators selected. Please select creators from the filter above.
                   </p>
                 ) : (
                   <div className="space-y-6">
                     {analyticsLoading ? (
                       <div className="text-center py-8">Loading analytics data...</div>
                     ) : (
-                      filteredCreators.map((creator) => {
+                      activeCreators.map((creator) => {
                         const channelLinks = getJsonObject(creator.channel_links);
                         const socialHandles = getJsonObject(creator.social_media_handles);
+                        const metrics = getCreatorMetrics(creator.id);
                         
                         const platforms = [];
-                        if ((selectedPlatform === "all" || selectedPlatform === "youtube") && hasValue(channelLinks, 'youtube')) {
+                        if ((selectedPlatform === "all" || selectedPlatform === "youtube") && hasValue(channelLinks, 'youtube') && metrics) {
                           platforms.push({
                             platform: 'YouTube',
-                            views: aggregatedAnalytics.totalViews || 0,
-                            engagement: aggregatedAnalytics.totalEngagement || 0,
-                            subscribers: aggregatedAnalytics.totalSubscribers || 0,
-                            engagementRate: aggregatedAnalytics.averageEngagementRate.toFixed(2)
+                            views: metrics.views,
+                            engagement: metrics.engagement,
+                            subscribers: metrics.subscribers,
+                            engagementRate: metrics.engagementRate
                           });
                         }
                         if ((selectedPlatform === "all" || selectedPlatform === "instagram") && hasValue(socialHandles, 'instagram')) {
