@@ -553,6 +553,35 @@ export type Database = {
       }
     }
     Views: {
+      creator_latest_stats: {
+        Row: {
+          channel_id: string | null
+          channel_name: string | null
+          creator_name: string | null
+          creator_roster_id: string | null
+          date_recorded: string | null
+          fetched_at: string | null
+          subscribers: number | null
+          user_id: string | null
+          views: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
+            isOneToOne: false
+            referencedRelation: "creator_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "youtube_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
+            isOneToOne: false
+            referencedRelation: "roster_analytics_summary"
+            referencedColumns: ["creator_roster_id"]
+          },
+        ]
+      }
       dashboard_analytics: {
         Row: {
           analytics_id: string | null
@@ -696,6 +725,16 @@ export type Database = {
       update_campaign_totals: {
         Args: { campaign_uuid: string }
         Returns: undefined
+      }
+      update_creator_youtube_stats: {
+        Args: {
+          p_creator_roster_id: string
+          p_channel_url: string
+          p_subscribers?: number
+          p_views?: number
+          p_video_count?: number
+        }
+        Returns: Json
       }
       update_youtube_channel_analytics: {
         Args: {

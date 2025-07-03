@@ -10,6 +10,7 @@ export interface RosterAnalyticsData {
   views: number;
   engagement: number;
   subscribers: number;
+  videosPosted?: number;
 }
 
 export const useRosterAnalytics = () => {
@@ -27,20 +28,9 @@ export const useRosterAnalytics = () => {
 
     setLoading(true);
     try {
-      // Build date filter conditions
-      let dateFilter = '';
-      const params: any[] = [user.id];
-      
-      if (dateRange?.from) {
-        dateFilter += ' AND ya.date_recorded >= $' + (params.length + 1);
-        params.push(dateRange.from.toISOString().split('T')[0]);
-      }
-      if (dateRange?.to) {
-        dateFilter += ' AND ya.date_recorded <= $' + (params.length + 1);
-        params.push(dateRange.to.toISOString().split('T')[0]);
-      }
+      console.log('Fetching roster analytics for creators:', creatorIds);
 
-      // Simple query using our new view and raw data
+      // Get YouTube analytics data for the selected creators
       const { data: analyticsData, error } = await supabase
         .from('youtube_analytics')
         .select(`
@@ -53,35 +43,46 @@ export const useRosterAnalytics = () => {
         `)
         .eq('creator_roster.user_id', user.id)
         .in('creator_roster_id', creatorIds)
-        .gte('date_recorded', dateRange?.from?.toISOString().split('T')[0] || '2025-06-01')
-        .lte('date_recorded', dateRange?.to?.toISOString().split('T')[0] || '2025-12-31')
+        .gte('date_recorded', dateRange?.from?.toISOString().split('T')[0] || '2024-01-01')
+        .lte('date_recorded', dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0])
         .order('date_recorded', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching analytics data:', error);
+        throw error;
+      }
 
-      // Simple data processing - group by date and sum
+      console.log('Raw analytics data:', analyticsData);
+
+      // Process the data by date
       const dateMap = new Map<string, RosterAnalyticsData>();
       
       (analyticsData || []).forEach(item => {
         const date = item.date_recorded || '';
+        if (!date) return;
+
         const existing = dateMap.get(date) || {
           date,
           views: 0,
           engagement: 0,
-          subscribers: 0
+          subscribers: 0,
+          videosPosted: 0
         };
 
-        // Sum views, use subscribers as engagement, take max subscribers
+        // Sum up the data for each date
         existing.views += Number(item.views) || 0;
-        existing.engagement += Number(item.subscribers) || 0; // Use subscribers as engagement metric
+        existing.engagement += Number(item.likes || 0) + Number(item.comments || 0);
         existing.subscribers = Math.max(existing.subscribers, Number(item.subscribers) || 0);
 
         dateMap.set(date, existing);
       });
 
-      setAnalyticsData(Array.from(dateMap.values()).sort((a, b) => 
+      const processedData = Array.from(dateMap.values()).sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
-      ));
+      );
+
+      console.log('Processed analytics data:', processedData);
+      setAnalyticsData(processedData);
 
     } catch (error) {
       console.error('Error fetching roster analytics:', error);
@@ -100,31 +101,46 @@ export const useRosterAnalytics = () => {
 
     setLoading(true);
     try {
-      // Get the latest data from our summary view to update today's records
-      const { data: summaryData, error: summaryError } = await supabase
-        .from('roster_analytics_summary')
+      console.log('Refreshing analytics data for creators:', creatorIds);
+
+      // Get creator roster data with channel URLs
+      const { data: creatorsData, error: creatorsError } = await supabase
+        .from('creator_roster')
         .select('*')
         .eq('user_id', user.id)
-        .in('creator_roster_id', creatorIds);
+        .in('id', creatorIds);
 
-      if (summaryError) throw summaryError;
+      if (creatorsError) throw creatorsError;
 
-      if (summaryData && summaryData.length > 0) {
-        // Update today's data for each creator using the SQL function
-        for (const creator of summaryData) {
-          const { error: updateError } = await supabase
-            .rpc('refresh_creator_youtube_data', {
-              p_creator_roster_id: creator.creator_roster_id,
-              p_subscribers: creator.current_subscribers,
-              p_views: creator.current_views,
-              p_engagement_rate: creator.current_engagement_rate
+      console.log('Creators data:', creatorsData);
+
+      // Refresh data for each creator with YouTube channel
+      for (const creator of creatorsData || []) {
+        const channelLinks = creator.channel_links as any || {};
+        const youtubeUrl = channelLinks.youtube;
+
+        if (youtubeUrl) {
+          console.log(`Refreshing YouTube data for ${creator.creator_name}:`, youtubeUrl);
+          
+          try {
+            // Call the fetch-channel-analytics edge function
+            const { data: channelData, error: channelError } = await supabase.functions.invoke('fetch-channel-analytics', {
+              body: { 
+                creator_roster_id: creator.id,
+                channel_url: youtubeUrl
+              }
             });
 
-          if (updateError) {
-            console.error(`Error updating data for ${creator.creator_name}:`, updateError);
-          } else {
-            console.log(`Successfully updated data for ${creator.creator_name}`);
+            if (channelError) {
+              console.error(`Error refreshing data for ${creator.creator_name}:`, channelError);
+            } else {
+              console.log(`Successfully refreshed data for ${creator.creator_name}:`, channelData);
+            }
+          } catch (funcError) {
+            console.error(`Function error for ${creator.creator_name}:`, funcError);
           }
+        } else {
+          console.log(`No YouTube URL found for ${creator.creator_name}`);
         }
       }
 
@@ -132,6 +148,11 @@ export const useRosterAnalytics = () => {
         title: "Success",
         description: "Analytics data refreshed successfully",
       });
+
+      // Wait a moment for the data to be processed, then refetch
+      setTimeout(() => {
+        fetchRosterAnalytics(creatorIds);
+      }, 2000);
 
     } catch (error) {
       console.error('Error refreshing analytics:', error);
@@ -143,7 +164,7 @@ export const useRosterAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, fetchRosterAnalytics]);
 
   return {
     analyticsData,

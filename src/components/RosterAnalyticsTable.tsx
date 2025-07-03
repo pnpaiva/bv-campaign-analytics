@@ -120,6 +120,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, loadi
         <CardContent>
           <div className="text-center py-8">
             <p className="text-muted-foreground">No channel analytics data available</p>
+            <p className="text-sm text-muted-foreground mt-2">Try refreshing the data to fetch latest YouTube statistics</p>
           </div>
         </CardContent>
       </Card>
