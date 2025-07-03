@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,25 +17,26 @@ const RosterDashboard = () => {
   const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [dataCache, setDataCache] = useState<Map<string, any>>(new Map());
 
   // Helper functions remain the same
-  const getJsonObject = (jsonObj: any): Record<string, any> => {
+  const getJsonObject = useCallback((jsonObj: any): Record<string, any> => {
     if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
       return jsonObj;
     }
     return {};
-  };
+  }, []);
 
-  const getStringValue = (jsonObj: any, key: string): string => {
+  const getStringValue = useCallback((jsonObj: any, key: string): string => {
     if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
       return jsonObj[key] || '';
     }
     return '';
-  };
+  }, []);
 
-  const hasValue = (jsonObj: any, key: string): boolean => {
+  const hasValue = useCallback((jsonObj: any, key: string): boolean => {
     return Boolean(getStringValue(jsonObj, key));
-  };
+  }, [getStringValue]);
 
   // Initialize selected creators to include all
   useEffect(() => {
@@ -44,8 +45,8 @@ const RosterDashboard = () => {
     }
   }, [creators, selectedCreators.length]);
 
-  // Filter creators based on selected platform and creators
-  const getFilteredCreators = () => {
+  // Memoize filtered creators to prevent unnecessary recalculations
+  const filteredCreators = useMemo(() => {
     let filtered = creators;
     
     // Filter by selected creators
@@ -73,12 +74,17 @@ const RosterDashboard = () => {
     }
     
     return filtered;
-  };
+  }, [creators, selectedCreators, selectedPlatform, getJsonObject, hasValue]);
 
-  const filteredCreators = getFilteredCreators();
+  // Generate stable analytics data with caching
+  const generateAnalyticsData = useCallback(async () => {
+    const cacheKey = `${selectedPlatform}-${selectedCreators.join(',')}-${filteredCreators.length}`;
+    
+    // Check if we have cached data for this combination
+    if (dataCache.has(cacheKey)) {
+      return dataCache.get(cacheKey);
+    }
 
-  // Generate analytics data with real YouTube integration
-  const generateAnalyticsData = async () => {
     const data = [];
     const dates = Array.from({ length: 30 }, (_, i) => {
       const date = new Date();
@@ -86,35 +92,46 @@ const RosterDashboard = () => {
       return date.toISOString().split('T')[0];
     });
 
-    for (const date of dates) {
+    // Use consistent seed for random generation based on creator IDs
+    const seedValue = filteredCreators.map(c => c.id).join('').split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+
+    for (let i = 0; i < dates.length; i++) {
+      const date = dates[i];
       let totalViews = 0;
       let totalEngagement = 0;
       let totalSubscribers = 0;
 
-      for (const creator of filteredCreators) {
+      for (let j = 0; j < filteredCreators.length; j++) {
+        const creator = filteredCreators[j];
         const channelLinks = getJsonObject(creator.channel_links);
         const socialHandles = getJsonObject(creator.social_media_handles);
 
-        // Mock data for now, but integrate with real APIs
+        // Use deterministic "random" values based on date, creator, and seed
+        const baseSeed = seedValue + i + j;
+        const viewsMultiplier = ((baseSeed * 9301 + 49297) % 233280) / 233280;
+        const engagementMultiplier = ((baseSeed * 9307 + 49157) % 233280) / 233280;
+        const subscribersMultiplier = ((baseSeed * 9311 + 49081) % 233280) / 233280;
+
+        // Mock data with consistent values
         if (selectedPlatform === "all" || selectedPlatform === "youtube") {
           if (hasValue(channelLinks, 'youtube')) {
-            totalViews += Math.floor(Math.random() * 10000) + 1000;
-            totalEngagement += Math.floor(Math.random() * 500) + 50;
-            totalSubscribers += Math.floor(Math.random() * 100) + 10;
+            totalViews += Math.floor(viewsMultiplier * 10000) + 1000;
+            totalEngagement += Math.floor(engagementMultiplier * 500) + 50;
+            totalSubscribers += Math.floor(subscribersMultiplier * 100) + 10;
           }
         }
         if (selectedPlatform === "all" || selectedPlatform === "instagram") {
           if (hasValue(socialHandles, 'instagram')) {
-            totalViews += Math.floor(Math.random() * 5000) + 500;
-            totalEngagement += Math.floor(Math.random() * 300) + 30;
-            totalSubscribers += Math.floor(Math.random() * 50) + 5;
+            totalViews += Math.floor(viewsMultiplier * 5000) + 500;
+            totalEngagement += Math.floor(engagementMultiplier * 300) + 30;
+            totalSubscribers += Math.floor(subscribersMultiplier * 50) + 5;
           }
         }
         if (selectedPlatform === "all" || selectedPlatform === "tiktok") {
           if (hasValue(socialHandles, 'tiktok')) {
-            totalViews += Math.floor(Math.random() * 20000) + 2000;
-            totalEngagement += Math.floor(Math.random() * 1000) + 100;
-            totalSubscribers += Math.floor(Math.random() * 200) + 20;
+            totalViews += Math.floor(viewsMultiplier * 20000) + 2000;
+            totalEngagement += Math.floor(engagementMultiplier * 1000) + 100;
+            totalSubscribers += Math.floor(subscribersMultiplier * 200) + 20;
           }
         }
       }
@@ -127,25 +144,30 @@ const RosterDashboard = () => {
       });
     }
 
+    // Cache the generated data
+    setDataCache(prev => new Map(prev.set(cacheKey, data)));
     return data;
-  };
+  }, [filteredCreators, selectedPlatform, selectedCreators, getJsonObject, hasValue, dataCache]);
 
-  // Load analytics data
+  // Load analytics data only when necessary
   useEffect(() => {
     const loadAnalytics = async () => {
-      const data = await generateAnalyticsData();
-      setAnalyticsData(data);
+      if (filteredCreators.length > 0) {
+        const data = await generateAnalyticsData();
+        setAnalyticsData(data);
+      }
     };
     
-    if (filteredCreators.length > 0) {
-      loadAnalytics();
-    }
-  }, [filteredCreators, selectedPlatform]);
+    loadAnalytics();
+  }, [filteredCreators, generateAnalyticsData]);
 
   // Refresh analytics with real YouTube data
   const refreshAnalytics = async () => {
     setRefreshing(true);
     try {
+      // Clear cache to force fresh data generation
+      setDataCache(new Map());
+      
       // Fetch real YouTube data for creators with YouTube channels
       for (const creator of filteredCreators) {
         const channelLinks = getJsonObject(creator.channel_links);
@@ -170,8 +192,8 @@ const RosterDashboard = () => {
     }
   };
 
-  // Calculate aggregated metrics
-  const getAggregatedAnalytics = () => {
+  // Memoize aggregated analytics to prevent recalculation
+  const aggregatedAnalytics = useMemo(() => {
     const aggregated = {
       totalViews: 0,
       totalEngagement: 0,
@@ -182,7 +204,10 @@ const RosterDashboard = () => {
     let totalEngagementRates = 0;
     let platformCount = 0;
 
-    filteredCreators.forEach(creator => {
+    // Use consistent seed for stable random generation
+    const seedValue = filteredCreators.map(c => c.id).join('').split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+
+    filteredCreators.forEach((creator, creatorIndex) => {
       const channelLinks = getJsonObject(creator.channel_links);
       const socialHandles = getJsonObject(creator.social_media_handles);
       
@@ -197,10 +222,15 @@ const RosterDashboard = () => {
         if (hasValue(socialHandles, 'tiktok')) platforms.push('tiktok');
       }
 
-      platforms.forEach(() => {
-        const views = Math.floor(Math.random() * 100000) + 10000;
-        const engagement = Math.floor(Math.random() * 5000) + 500;
-        const subscribers = Math.floor(Math.random() * 10000) + 1000;
+      platforms.forEach((platform, platformIndex) => {
+        const baseSeed = seedValue + creatorIndex + platformIndex;
+        const viewsMultiplier = ((baseSeed * 9301 + 49297) % 233280) / 233280;
+        const engagementMultiplier = ((baseSeed * 9307 + 49157) % 233280) / 233280;
+        const subscribersMultiplier = ((baseSeed * 9311 + 49081) % 233280) / 233280;
+
+        const views = Math.floor(viewsMultiplier * 100000) + 10000;
+        const engagement = Math.floor(engagementMultiplier * 5000) + 500;
+        const subscribers = Math.floor(subscribersMultiplier * 10000) + 1000;
         const engagementRate = (engagement / views) * 100;
 
         aggregated.totalViews += views;
@@ -213,9 +243,7 @@ const RosterDashboard = () => {
 
     aggregated.averageEngagementRate = platformCount > 0 ? totalEngagementRates / platformCount : 0;
     return aggregated;
-  };
-
-  const analytics = getAggregatedAnalytics();
+  }, [filteredCreators, selectedPlatform, getJsonObject, hasValue]);
 
   if (!user) {
     return (
@@ -337,7 +365,7 @@ const RosterDashboard = () => {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.totalSubscribers.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{aggregatedAnalytics.totalSubscribers.toLocaleString()}</div>
                 </CardContent>
               </Card>
 
@@ -347,7 +375,7 @@ const RosterDashboard = () => {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.averageEngagementRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold">{aggregatedAnalytics.averageEngagementRate.toFixed(1)}%</div>
                 </CardContent>
               </Card>
             </div>
@@ -375,35 +403,53 @@ const RosterDashboard = () => {
                   </p>
                 ) : (
                   <div className="space-y-6">
-                    {filteredCreators.map((creator) => {
+                    {filteredCreators.map((creator, creatorIndex) => {
                       const channelLinks = getJsonObject(creator.channel_links);
                       const socialHandles = getJsonObject(creator.social_media_handles);
                       
+                      // Use consistent seed for stable random generation
+                      const seedValue = creator.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+                      
                       const platforms = [];
                       if ((selectedPlatform === "all" || selectedPlatform === "youtube") && hasValue(channelLinks, 'youtube')) {
+                        const baseSeed = seedValue + 1;
+                        const viewsMultiplier = ((baseSeed * 9301 + 49297) % 233280) / 233280;
+                        const engagementMultiplier = ((baseSeed * 9307 + 49157) % 233280) / 233280;
+                        const subscribersMultiplier = ((baseSeed * 9311 + 49081) % 233280) / 233280;
+                        
                         platforms.push({
                           platform: 'YouTube',
-                          views: Math.floor(Math.random() * 100000) + 10000,
-                          engagement: Math.floor(Math.random() * 5000) + 500,
-                          subscribers: Math.floor(Math.random() * 50000) + 5000,
+                          views: Math.floor(viewsMultiplier * 100000) + 10000,
+                          engagement: Math.floor(engagementMultiplier * 5000) + 500,
+                          subscribers: Math.floor(subscribersMultiplier * 50000) + 5000,
                           engagementRate: (Math.random() * 10 + 1).toFixed(2)
                         });
                       }
                       if ((selectedPlatform === "all" || selectedPlatform === "instagram") && hasValue(socialHandles, 'instagram')) {
+                        const baseSeed = seedValue + 2;
+                        const viewsMultiplier = ((baseSeed * 9301 + 49297) % 233280) / 233280;
+                        const engagementMultiplier = ((baseSeed * 9307 + 49157) % 233280) / 233280;
+                        const subscribersMultiplier = ((baseSeed * 9311 + 49081) % 233280) / 233280;
+                        
                         platforms.push({
                           platform: 'Instagram',
-                          views: Math.floor(Math.random() * 50000) + 5000,
-                          engagement: Math.floor(Math.random() * 2500) + 250,
-                          subscribers: Math.floor(Math.random() * 25000) + 2500,
+                          views: Math.floor(viewsMultiplier * 50000) + 5000,
+                          engagement: Math.floor(engagementMultiplier * 2500) + 250,
+                          subscribers: Math.floor(subscribersMultiplier * 25000) + 2500,
                           engagementRate: (Math.random() * 8 + 2).toFixed(2)
                         });
                       }
                       if ((selectedPlatform === "all" || selectedPlatform === "tiktok") && hasValue(socialHandles, 'tiktok')) {
+                        const baseSeed = seedValue + 3;
+                        const viewsMultiplier = ((baseSeed * 9301 + 49297) % 233280) / 233280;
+                        const engagementMultiplier = ((baseSeed * 9307 + 49157) % 233280) / 233280;
+                        const subscribersMultiplier = ((baseSeed * 9311 + 49081) % 233280) / 233280;
+                        
                         platforms.push({
                           platform: 'TikTok',
-                          views: Math.floor(Math.random() * 200000) + 20000,
-                          engagement: Math.floor(Math.random() * 10000) + 1000,
-                          subscribers: Math.floor(Math.random() * 100000) + 10000,
+                          views: Math.floor(viewsMultiplier * 200000) + 20000,
+                          engagement: Math.floor(engagementMultiplier * 10000) + 1000,
+                          subscribers: Math.floor(subscribersMultiplier * 100000) + 10000,
                           engagementRate: (Math.random() * 15 + 3).toFixed(2)
                         });
                       }
