@@ -20,7 +20,6 @@ const Roster = () => {
     youtube_channel: '',
     instagram_handle: '',
     tiktok_handle: '',
-    twitter_handle: '',
   });
 
   const resetForm = () => {
@@ -29,7 +28,6 @@ const Roster = () => {
       youtube_channel: '',
       instagram_handle: '',
       tiktok_handle: '',
-      twitter_handle: '',
     });
   };
 
@@ -44,7 +42,6 @@ const Roster = () => {
       social_media_handles: {
         instagram: formData.instagram_handle,
         tiktok: formData.tiktok_handle,
-        twitter: formData.twitter_handle,
       },
     };
 
@@ -61,16 +58,23 @@ const Roster = () => {
 
   const handleEdit = (creator: RosterCreator) => {
     setEditingCreator(creator);
-    const channelLinks = creator.channel_links as Record<string, any> || {};
-    const socialHandles = creator.social_media_handles as Record<string, any> || {};
+    const channelLinks = getJsonObject(creator.channel_links);
+    const socialHandles = getJsonObject(creator.social_media_handles);
     
     setFormData({
       creator_name: creator.creator_name,
-      youtube_channel: channelLinks?.youtube || '',
-      instagram_handle: socialHandles?.instagram || '',
-      tiktok_handle: socialHandles?.tiktok || '',
-      twitter_handle: socialHandles?.twitter || '',
+      youtube_channel: getStringValue(channelLinks, 'youtube'),
+      instagram_handle: getStringValue(socialHandles, 'instagram'),
+      tiktok_handle: getStringValue(socialHandles, 'tiktok'),
     });
+  };
+
+  // Helper function to safely convert Json to object
+  const getJsonObject = (jsonObj: any): Record<string, any> => {
+    if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
+      return jsonObj;
+    }
+    return {};
   };
 
   // Helper function to safely get string value from Json
@@ -146,15 +150,6 @@ const Roster = () => {
                     onChange={(e) => setFormData({ ...formData, tiktok_handle: e.target.value })}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="twitter_handle">Twitter Handle</Label>
-                  <Input
-                    id="twitter_handle"
-                    placeholder="@username"
-                    value={formData.twitter_handle}
-                    onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value })}
-                  />
-                </div>
                 <div className="flex gap-2">
                   <Button type="submit">Add Creator</Button>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -177,8 +172,8 @@ const Roster = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {creators.map((creator) => {
-              const channelLinks = creator.channel_links as Record<string, any> || {};
-              const socialHandles = creator.social_media_handles as Record<string, any> || {};
+              const channelLinks = getJsonObject(creator.channel_links);
+              const socialHandles = getJsonObject(creator.social_media_handles);
               
               return (
                 <Card key={creator.id}>
@@ -230,12 +225,6 @@ const Roster = () => {
                           <span className="text-sm">{getStringValue(socialHandles, 'tiktok')}</span>
                         </div>
                       )}
-                      {getStringValue(socialHandles, 'twitter') && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">Twitter:</span>
-                          <span className="text-sm">{getStringValue(socialHandles, 'twitter')}</span>
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -285,15 +274,6 @@ const Roster = () => {
                     placeholder="@username"
                     value={formData.tiktok_handle}
                     onChange={(e) => setFormData({ ...formData, tiktok_handle: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit_twitter_handle">Twitter Handle</Label>
-                  <Input
-                    id="edit_twitter_handle"
-                    placeholder="@username"
-                    value={formData.twitter_handle}
-                    onChange={(e) => setFormData({ ...formData, twitter_handle: e.target.value })}
                   />
                 </div>
                 <div className="flex gap-2">
