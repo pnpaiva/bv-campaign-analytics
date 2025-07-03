@@ -311,6 +311,47 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_analytics: {
+        Row: {
+          created_at: string
+          creator_roster_id: string
+          fetched_at: string
+          id: string
+          metric_type: string
+          metric_value: number
+          platform: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_roster_id: string
+          fetched_at?: string
+          id?: string
+          metric_type: string
+          metric_value?: number
+          platform: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_roster_id?: string
+          fetched_at?: string
+          id?: string
+          metric_type?: string
+          metric_value?: number
+          platform?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
+            isOneToOne: false
+            referencedRelation: "creator_roster"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       creator_roster: {
         Row: {
           channel_links: Json | null
