@@ -315,6 +315,7 @@ export type Database = {
         Row: {
           created_at: string
           creator_roster_id: string
+          date_recorded: string | null
           fetched_at: string
           id: string
           metric_type: string
@@ -325,6 +326,7 @@ export type Database = {
         Insert: {
           created_at?: string
           creator_roster_id: string
+          date_recorded?: string | null
           fetched_at?: string
           id?: string
           metric_type: string
@@ -335,6 +337,7 @@ export type Database = {
         Update: {
           created_at?: string
           creator_roster_id?: string
+          date_recorded?: string | null
           fetched_at?: string
           id?: string
           metric_type?: string
@@ -450,6 +453,71 @@ export type Database = {
           {
             foreignKeyName: "roster_analytics_roster_id_fkey"
             columns: ["roster_id"]
+            isOneToOne: false
+            referencedRelation: "creator_roster"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      youtube_analytics: {
+        Row: {
+          channel_id: string | null
+          comments: number | null
+          created_at: string
+          creator_roster_id: string
+          date_recorded: string | null
+          engagement_rate: number | null
+          fetched_at: string
+          id: string
+          likes: number | null
+          published_at: string | null
+          subscribers: number | null
+          title: string | null
+          updated_at: string
+          video_id: string | null
+          views: number | null
+          watch_time_hours: number | null
+        }
+        Insert: {
+          channel_id?: string | null
+          comments?: number | null
+          created_at?: string
+          creator_roster_id: string
+          date_recorded?: string | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          likes?: number | null
+          published_at?: string | null
+          subscribers?: number | null
+          title?: string | null
+          updated_at?: string
+          video_id?: string | null
+          views?: number | null
+          watch_time_hours?: number | null
+        }
+        Update: {
+          channel_id?: string | null
+          comments?: number | null
+          created_at?: string
+          creator_roster_id?: string
+          date_recorded?: string | null
+          engagement_rate?: number | null
+          fetched_at?: string
+          id?: string
+          likes?: number | null
+          published_at?: string | null
+          subscribers?: number | null
+          title?: string | null
+          updated_at?: string
+          video_id?: string | null
+          views?: number | null
+          watch_time_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
             isOneToOne: false
             referencedRelation: "creator_roster"
             referencedColumns: ["id"]
