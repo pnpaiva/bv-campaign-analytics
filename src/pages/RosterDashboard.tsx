@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
 import { useRosterAnalytics } from "@/hooks/useRosterAnalytics";
+import { supabase } from "@/integrations/supabase/client";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
@@ -111,32 +112,54 @@ const RosterDashboard = () => {
     }
   };
 
-  // Calculate aggregated metrics from real data
-  const aggregatedAnalytics = useMemo(() => {
-    if (analyticsData.length === 0) {
-      return {
-        totalViews: 0,
-        totalEngagement: 0,
-        totalSubscribers: 0,
-        averageEngagementRate: 0,
-      };
-    }
+  // Get aggregated metrics from SQL view
+  const [aggregatedAnalytics, setAggregatedAnalytics] = useState({
+    totalViews: 0,
+    totalEngagement: 0,
+    totalSubscribers: 0,
+    averageEngagementRate: 0,
+  });
 
-    const totals = analyticsData.reduce((acc, item) => ({
-      totalViews: acc.totalViews + item.views,
-      totalEngagement: acc.totalEngagement + item.engagement,
-      totalSubscribers: acc.totalSubscribers + item.subscribers,
-    }), { totalViews: 0, totalEngagement: 0, totalSubscribers: 0 });
+  // Fetch summary data whenever creators change
+  useEffect(() => {
+    const fetchSummaryData = async () => {
+      if (!user || filteredCreators.length === 0) return;
 
-    const averageEngagementRate = totals.totalViews > 0 
-      ? (totals.totalEngagement / totals.totalViews) * 100 
-      : 0;
+      try {
+        const { data: summaryData, error } = await supabase
+          .from('roster_analytics_summary')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('creator_roster_id', filteredCreators.map(c => c.id));
 
-    return {
-      ...totals,
-      averageEngagementRate
+        if (error) throw error;
+
+        if (summaryData && summaryData.length > 0) {
+          const totals = summaryData.reduce((acc, item) => ({
+            totalViews: acc.totalViews + (Number(item.current_views) || 0),
+            totalEngagement: acc.totalEngagement + (Number(item.current_subscribers) || 0),
+            totalSubscribers: acc.totalSubscribers + (Number(item.current_subscribers) || 0),
+            totalEngagementRate: acc.totalEngagementRate + (Number(item.current_engagement_rate) || 0),
+          }), { totalViews: 0, totalEngagement: 0, totalSubscribers: 0, totalEngagementRate: 0 });
+
+          const averageEngagementRate = summaryData.length > 0 
+            ? totals.totalEngagementRate / summaryData.length 
+            : 0;
+
+          setAggregatedAnalytics({
+            totalViews: totals.totalViews,
+            totalEngagement: totals.totalEngagement,
+            totalSubscribers: totals.totalSubscribers,
+            averageEngagementRate
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching summary data:', error);
+      }
     };
-  }, [analyticsData]);
+
+    fetchSummaryData();
+  }, [filteredCreators, user]);
 
   if (!user) {
     return (

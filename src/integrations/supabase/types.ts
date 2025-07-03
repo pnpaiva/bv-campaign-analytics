@@ -353,6 +353,13 @@ export type Database = {
             referencedRelation: "creator_roster"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "creator_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
+            isOneToOne: false
+            referencedRelation: "roster_analytics_summary"
+            referencedColumns: ["creator_roster_id"]
+          },
         ]
       }
       creator_roster: {
@@ -457,6 +464,13 @@ export type Database = {
             referencedRelation: "creator_roster"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "roster_analytics_roster_id_fkey"
+            columns: ["roster_id"]
+            isOneToOne: false
+            referencedRelation: "roster_analytics_summary"
+            referencedColumns: ["creator_roster_id"]
+          },
         ]
       }
       youtube_analytics: {
@@ -528,6 +542,13 @@ export type Database = {
             referencedRelation: "creator_roster"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "youtube_analytics_creator_roster_id_fkey"
+            columns: ["creator_roster_id"]
+            isOneToOne: false
+            referencedRelation: "roster_analytics_summary"
+            referencedColumns: ["creator_roster_id"]
+          },
         ]
       }
     }
@@ -578,6 +599,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      roster_analytics_summary: {
+        Row: {
+          avg_engagement_rate: number | null
+          creator_name: string | null
+          creator_roster_id: string | null
+          current_engagement_rate: number | null
+          current_subscribers: number | null
+          current_views: number | null
+          data_points: number | null
+          last_update_date: string | null
+          total_engagement: number | null
+          total_views: number | null
+          user_id: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -646,6 +683,15 @@ export type Database = {
           engagement_rate: number
           campaign_date: string
         }[]
+      }
+      refresh_creator_youtube_data: {
+        Args: {
+          p_creator_roster_id: string
+          p_subscribers?: number
+          p_views?: number
+          p_engagement_rate?: number
+        }
+        Returns: undefined
       }
       update_campaign_totals: {
         Args: { campaign_uuid: string }

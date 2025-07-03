@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,7 +27,21 @@ export const useRosterAnalytics = () => {
 
     setLoading(true);
     try {
-      let query = supabase
+      // Build date filter conditions
+      let dateFilter = '';
+      const params: any[] = [user.id];
+      
+      if (dateRange?.from) {
+        dateFilter += ' AND ya.date_recorded >= $' + (params.length + 1);
+        params.push(dateRange.from.toISOString().split('T')[0]);
+      }
+      if (dateRange?.to) {
+        dateFilter += ' AND ya.date_recorded <= $' + (params.length + 1);
+        params.push(dateRange.to.toISOString().split('T')[0]);
+      }
+
+      // Simple query using our new view and raw data
+      const { data: analyticsData, error } = await supabase
         .from('youtube_analytics')
         .select(`
           *,
@@ -38,23 +52,36 @@ export const useRosterAnalytics = () => {
           )
         `)
         .eq('creator_roster.user_id', user.id)
-        .in('creator_roster_id', creatorIds);
-
-      // Apply date filtering
-      if (dateRange?.from) {
-        query = query.gte('date_recorded', dateRange.from.toISOString().split('T')[0]);
-      }
-      if (dateRange?.to) {
-        query = query.lte('date_recorded', dateRange.to.toISOString().split('T')[0]);
-      }
-
-      const { data, error } = await query.order('date_recorded', { ascending: true });
+        .in('creator_roster_id', creatorIds)
+        .gte('date_recorded', dateRange?.from?.toISOString().split('T')[0] || '2025-06-01')
+        .lte('date_recorded', dateRange?.to?.toISOString().split('T')[0] || '2025-12-31')
+        .order('date_recorded', { ascending: true });
 
       if (error) throw error;
 
-      // Process data for chart
-      const processedData = processAnalyticsData(data || []);
-      setAnalyticsData(processedData);
+      // Simple data processing - group by date and sum
+      const dateMap = new Map<string, RosterAnalyticsData>();
+      
+      (analyticsData || []).forEach(item => {
+        const date = item.date_recorded || '';
+        const existing = dateMap.get(date) || {
+          date,
+          views: 0,
+          engagement: 0,
+          subscribers: 0
+        };
+
+        // Sum views, use subscribers as engagement, take max subscribers
+        existing.views += Number(item.views) || 0;
+        existing.engagement += Number(item.subscribers) || 0; // Use subscribers as engagement metric
+        existing.subscribers = Math.max(existing.subscribers, Number(item.subscribers) || 0);
+
+        dateMap.set(date, existing);
+      });
+
+      setAnalyticsData(Array.from(dateMap.values()).sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      ));
 
     } catch (error) {
       console.error('Error fetching roster analytics:', error);
@@ -68,66 +95,35 @@ export const useRosterAnalytics = () => {
     }
   }, [user, toast]);
 
-  const processAnalyticsData = (data: any[]): RosterAnalyticsData[] => {
-    const dateMap = new Map<string, RosterAnalyticsData>();
-
-    data.forEach(item => {
-      const date = item.date_recorded;
-      const existing = dateMap.get(date) || {
-        date,
-        views: 0,
-        engagement: 0,
-        subscribers: 0
-      };
-
-      existing.views += Number(item.views) || 0;
-      // For channel analytics, use subscriber growth as engagement metric since 
-      // likes/comments are not available at channel level
-      existing.engagement += Number(item.subscribers) || 0;
-      // Use the maximum subscribers count for the day (latest reading)
-      existing.subscribers = Math.max(existing.subscribers, Number(item.subscribers) || 0);
-
-      dateMap.set(date, existing);
-    });
-
-    return Array.from(dateMap.values()).sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-  };
-
   const refreshAnalyticsData = useCallback(async (creatorIds: string[]) => {
     if (!user || creatorIds.length === 0) return;
 
     setLoading(true);
     try {
-      // Get creators with YouTube channels
-      const { data: creators } = await supabase
-        .from('creator_roster')
+      // Get the latest data from our summary view to update today's records
+      const { data: summaryData, error: summaryError } = await supabase
+        .from('roster_analytics_summary')
         .select('*')
         .eq('user_id', user.id)
-        .in('id', creatorIds);
+        .in('creator_roster_id', creatorIds);
 
-      if (!creators) return;
+      if (summaryError) throw summaryError;
 
-      // Fetch fresh data for each creator
-      for (const creator of creators) {
-        const channelLinks = creator.channel_links as any;
-        const youtubeUrl = channelLinks?.youtube;
-        
-        if (youtubeUrl) {
-          console.log(`Fetching fresh YouTube data for ${creator.creator_name}...`);
-          
-          const { data, error } = await supabase.functions.invoke('fetch-channel-analytics', {
-            body: {
-              creator_roster_id: creator.id,
-              channel_url: youtubeUrl
-            }
-          });
+      if (summaryData && summaryData.length > 0) {
+        // Update today's data for each creator using the SQL function
+        for (const creator of summaryData) {
+          const { error: updateError } = await supabase
+            .rpc('refresh_creator_youtube_data', {
+              p_creator_roster_id: creator.creator_roster_id,
+              p_subscribers: creator.current_subscribers,
+              p_views: creator.current_views,
+              p_engagement_rate: creator.current_engagement_rate
+            });
 
-          if (error) {
-            console.error(`Error fetching data for ${creator.creator_name}:`, error);
+          if (updateError) {
+            console.error(`Error updating data for ${creator.creator_name}:`, updateError);
           } else {
-            console.log(`Successfully fetched data for ${creator.creator_name}:`, data);
+            console.log(`Successfully updated data for ${creator.creator_name}`);
           }
         }
       }
