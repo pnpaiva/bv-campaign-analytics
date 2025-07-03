@@ -13,6 +13,8 @@ interface RosterAnalyticsData {
   engagement: number;
   subscribers: number;
   videosPosted?: number;
+  daily_views?: number;
+  daily_engagement?: number;
 }
 
 interface CreatorAnalyticsData {
@@ -230,8 +232,8 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
               {data.slice(-10).map((item, index) => {
                 // Find corresponding daily data for more accurate daily metrics
                 const dailyData = dailyAggregatedData.find(d => d.date === item.date);
-                const actualDailyViews = dailyData?.daily_views || item.views;
-                const actualDailyEngagement = dailyData?.daily_engagement || item.engagement;
+                const actualDailyViews = dailyData?.daily_views || item.daily_views || item.views;
+                const actualDailyEngagement = dailyData?.daily_engagement || item.daily_engagement || item.engagement;
                 
                 return (
                   <TableRow key={item.date}>
