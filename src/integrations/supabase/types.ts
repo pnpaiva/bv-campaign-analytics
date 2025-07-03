@@ -481,6 +481,10 @@ export type Database = {
           comments: number | null
           created_at: string
           creator_roster_id: string
+          daily_comments: number | null
+          daily_likes: number | null
+          daily_subscribers: number | null
+          daily_views: number | null
           date_recorded: string | null
           engagement_rate: number | null
           fetched_at: string
@@ -501,6 +505,10 @@ export type Database = {
           comments?: number | null
           created_at?: string
           creator_roster_id: string
+          daily_comments?: number | null
+          daily_likes?: number | null
+          daily_subscribers?: number | null
+          daily_views?: number | null
           date_recorded?: string | null
           engagement_rate?: number | null
           fetched_at?: string
@@ -521,6 +529,10 @@ export type Database = {
           comments?: number | null
           created_at?: string
           creator_roster_id?: string
+          daily_comments?: number | null
+          daily_likes?: number | null
+          daily_subscribers?: number | null
+          daily_views?: number | null
           date_recorded?: string | null
           engagement_rate?: number | null
           fetched_at?: string
@@ -650,6 +662,10 @@ export type Database = {
       calculate_channel_engagement: {
         Args: { p_subscribers: number; p_views: number }
         Returns: number
+      }
+      calculate_daily_youtube_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_expired_cache: {
         Args: Record<PropertyKey, never>

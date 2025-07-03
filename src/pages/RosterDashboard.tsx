@@ -138,7 +138,7 @@ const RosterDashboard = () => {
     }
   };
 
-  // Get aggregated metrics from analytics data
+  // Get aggregated metrics from analytics data using daily values
   const aggregatedAnalytics = useMemo(() => {
     if (analyticsData.length === 0) {
       return {
@@ -149,27 +149,34 @@ const RosterDashboard = () => {
       };
     }
 
-    const latestData = analyticsData[analyticsData.length - 1];
-    const totalViews = analyticsData.reduce((sum, item) => sum + (item.views || 0), 0);
-    const totalEngagement = analyticsData.reduce((sum, item) => sum + (item.engagement || 0), 0);
+    // Use daily values for calculations
+    const totalViews = analyticsData.reduce((sum, item) => sum + (item.daily_views || 0), 0);
+    const totalEngagement = analyticsData.reduce((sum, item) => sum + (item.daily_engagement || 0), 0);
     const averageEngagementRate = totalViews > 0 ? (totalEngagement / totalViews) * 100 : 0;
+
+    // Get current total subscribers from latest data across all creators
+    const latestDate = analyticsData[analyticsData.length - 1]?.date;
+    const totalSubscribers = latestDate ? 
+      creatorAnalyticsData
+        .filter(item => item.date === latestDate)
+        .reduce((sum, item) => sum + item.subscribers, 0) : 0;
 
     return {
       totalViews,
       totalEngagement,
-      totalSubscribers: latestData?.subscribers || 0,
+      totalSubscribers,
       averageEngagementRate
     };
-  }, [analyticsData]);
+  }, [analyticsData, creatorAnalyticsData]);
 
-  // Get individual creator metrics
+  // Get individual creator metrics using daily values
   const getCreatorMetrics = useCallback((creatorId: string) => {
     const creatorData = creatorAnalyticsData.filter(d => d.creator_id === creatorId);
     if (creatorData.length === 0) return null;
 
     const latestData = creatorData[creatorData.length - 1];
-    const totalViews = creatorData.reduce((sum, item) => sum + (item.views || 0), 0);
-    const totalEngagement = creatorData.reduce((sum, item) => sum + (item.engagement || 0), 0);
+    const totalViews = creatorData.reduce((sum, item) => sum + (item.daily_views || 0), 0);
+    const totalEngagement = creatorData.reduce((sum, item) => sum + (item.daily_engagement || 0), 0);
     
     return {
       views: totalViews,
@@ -311,7 +318,7 @@ const RosterDashboard = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+                  <CardTitle className="text-sm font-medium">Daily Views</CardTitle>
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -343,7 +350,7 @@ const RosterDashboard = () => {
             <div className="mb-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Channel Growth Trends</CardTitle>
+                  <CardTitle>Channel Performance Trends</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <AnalyticsChart 

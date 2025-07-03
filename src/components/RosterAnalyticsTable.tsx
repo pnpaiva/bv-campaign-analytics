@@ -35,7 +35,7 @@ interface RosterAnalyticsTableProps {
 }
 
 const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creatorData = [], loading }) => {
-  // Calculate summary statistics
+  // Calculate summary statistics using daily values
   const calculateSummary = () => {
     if (data.length === 0) return null;
 
@@ -49,86 +49,68 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
       return itemDate >= subDays(today, 30);
     });
 
-    const calcAverage = (arr: RosterAnalyticsData[], field: keyof RosterAnalyticsData) => {
+    const calcTotal = (arr: RosterAnalyticsData[], field: 'daily_views' | 'daily_engagement' | 'subscribers') => {
+      return arr.reduce((acc, item) => {
+        if (field === 'daily_views') return acc + (item.daily_views || 0);
+        if (field === 'daily_engagement') return acc + (item.daily_engagement || 0);
+        if (field === 'subscribers') return acc + (item.subscribers || 0);
+        return acc;
+      }, 0);
+    };
+
+    const calcAverage = (arr: RosterAnalyticsData[], field: 'daily_views' | 'daily_engagement') => {
       if (arr.length === 0) return 0;
-      const sum = arr.reduce((acc, item) => acc + (Number(item[field]) || 0), 0);
+      const sum = calcTotal(arr, field);
       return Math.round(sum / arr.length);
     };
 
-    const calcTotal = (arr: RosterAnalyticsData[], field: keyof RosterAnalyticsData) => {
-      return arr.reduce((acc, item) => acc + (Number(item[field]) || 0), 0);
-    };
-
-    const latestData = data[data.length - 1];
+    // Get current total subscribers from the latest data across all creators
+    const latestDate = data[data.length - 1]?.date;
+    const currentSubscribers = latestDate ? 
+      creatorData
+        .filter(item => item.date === latestDate)
+        .reduce((sum, item) => sum + item.subscribers, 0) : 0;
 
     return {
-      currentSubscribers: latestData?.subscribers || 0,
-      totalViews: calcTotal(data, 'views'),
-      totalVideos: calcTotal(data, 'videosPosted'),
+      currentSubscribers,
+      totalViews: calcTotal(data, 'daily_views'),
+      totalVideos: data.reduce((acc, item) => acc + (item.videosPosted || 0), 0),
       last7Days: {
-        views: calcTotal(last7Days, 'views'),
-        videos: calcTotal(last7Days, 'videosPosted'),
-        avgViews: calcAverage(last7Days, 'views')
+        views: calcTotal(last7Days, 'daily_views'),
+        videos: last7Days.reduce((acc, item) => acc + (item.videosPosted || 0), 0),
+        avgViews: calcAverage(last7Days, 'daily_views')
       },
       last30Days: {
-        views: calcTotal(last30Days, 'views'),
-        videos: calcTotal(last30Days, 'videosPosted'),
-        avgViews: calcAverage(last30Days, 'views')
+        views: calcTotal(last30Days, 'daily_views'),
+        videos: last30Days.reduce((acc, item) => acc + (item.videosPosted || 0), 0),
+        avgViews: calcAverage(last30Days, 'daily_views')
       }
     };
   };
 
   const summary = calculateSummary();
 
-  // Get daily aggregated data from creator data for more accurate daily metrics
-  const getDailyAggregatedData = () => {
-    if (creatorData.length === 0) return data;
-
-    const dailyMap = new Map<string, { date: string; daily_views: number; daily_engagement: number; subscribers: number }>();
-    
-    creatorData.forEach(item => {
-      const existing = dailyMap.get(item.date) || { 
-        date: item.date, 
-        daily_views: 0, 
-        daily_engagement: 0, 
-        subscribers: 0 
-      };
-      
-      existing.daily_views += item.daily_views;
-      existing.daily_engagement += item.daily_engagement;
-      existing.subscribers = Math.max(existing.subscribers, item.subscribers); // Take max for subscribers
-      
-      dailyMap.set(item.date, existing);
-    });
-
-    return Array.from(dailyMap.values()).sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-  };
-
-  const dailyAggregatedData = getDailyAggregatedData();
-
-  // Prepare chart data
+  // Prepare chart data using daily values
   const chartData = data.map(item => ({
     ...item,
     date: format(parseISO(item.date), 'MMM dd'),
-    views: Number(item.views) || 0,
-    engagement: Number(item.engagement) || 0,
-    subscribers: Number(item.subscribers) || 0,
+    views: item.daily_views || 0, // Use daily views for charts
+    engagement: item.daily_engagement || 0, // Use daily engagement for charts
+    subscribers: item.subscribers || 0,
     videosPosted: Number(item.videosPosted) || 0
   }));
 
   const chartConfig = {
     views: {
-      label: "Views",
+      label: "Daily Views",
       color: "hsl(var(--chart-1))",
     },
     engagement: {
-      label: "Engagement", 
+      label: "Daily Engagement", 
       color: "hsl(var(--chart-2))",
     },
     subscribers: {
-      label: "Subscribers",
+      label: "Subscriber Changes",
       color: "hsl(var(--chart-3))",
     },
     videosPosted: {
@@ -187,7 +169,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">{summary.totalViews.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Total Views</div>
+                <div className="text-sm text-muted-foreground">Total Daily Views</div>
               </div>
             </CardContent>
           </Card>
@@ -222,7 +204,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Subscribers</TableHead>
+                <TableHead className="text-right">Subscriber Growth</TableHead>
                 <TableHead className="text-right">Daily Views</TableHead>
                 <TableHead className="text-right">Daily Engagement</TableHead>
                 <TableHead className="text-right">Videos Posted</TableHead>
@@ -230,11 +212,6 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
             </TableHeader>
             <TableBody>
               {data.slice(-10).map((item, index) => {
-                // Find corresponding daily data for more accurate daily metrics
-                const dailyData = dailyAggregatedData.find(d => d.date === item.date);
-                const actualDailyViews = dailyData?.daily_views || item.daily_views || item.views;
-                const actualDailyEngagement = dailyData?.daily_engagement || item.daily_engagement || item.engagement;
-                
                 return (
                   <TableRow key={item.date}>
                     <TableCell>
@@ -248,13 +225,13 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {Number(item.subscribers).toLocaleString()}
+                      {(item.subscribers || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {actualDailyViews.toLocaleString()}
+                      {(item.daily_views || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {actualDailyEngagement.toLocaleString()}
+                      {(item.daily_engagement || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(item.videosPosted || 0)}

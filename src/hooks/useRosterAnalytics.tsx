@@ -11,6 +11,8 @@ export interface RosterAnalyticsData {
   engagement: number;
   subscribers: number;
   videosPosted?: number;
+  daily_views?: number;
+  daily_engagement?: number;
 }
 
 export interface CreatorAnalyticsData {
@@ -20,8 +22,8 @@ export interface CreatorAnalyticsData {
   views: number;
   engagement: number;
   subscribers: number;
-  daily_views: number; // New: actual daily video views
-  daily_engagement: number; // New: daily engagement metrics
+  daily_views: number;
+  daily_engagement: number;
 }
 
 export const useRosterAnalytics = () => {
@@ -44,6 +46,12 @@ export const useRosterAnalytics = () => {
     setLoading(true);
     try {
       console.log('Fetching roster analytics for creators:', creatorIds);
+
+      // First, recalculate daily metrics to ensure we have the latest data
+      const { error: calcError } = await supabase.rpc('calculate_daily_youtube_metrics');
+      if (calcError) {
+        console.error('Error calculating daily metrics:', calcError);
+      }
 
       // Get YouTube analytics data for selected creators
       const { data: analyticsData, error } = await supabase
@@ -69,7 +77,7 @@ export const useRosterAnalytics = () => {
 
       console.log('Raw analytics data:', analyticsData);
 
-      // Process aggregated data by date
+      // Process aggregated data by date - sum daily values across creators
       const dateMap = new Map<string, RosterAnalyticsData>();
       
       // Process individual creator data
@@ -82,21 +90,30 @@ export const useRosterAnalytics = () => {
         const creatorId = item.creator_roster_id;
         const creatorName = item.creator_roster?.creator_name || 'Unknown';
 
-        // Aggregate data for charts
+        // Use daily values for aggregation (not cumulative totals)
+        const dailyViews = Number(item.daily_views) || 0;
+        const dailyEngagement = Number(item.daily_likes || 0) + Number(item.daily_comments || 0);
+        const dailySubscribers = Number(item.daily_subscribers) || 0;
+
+        // Aggregate daily data across all creators for each date
         const existing = dateMap.get(date) || {
           date,
           views: 0,
           engagement: 0,
           subscribers: 0,
-          videosPosted: 0
+          videosPosted: 0,
+          daily_views: 0,
+          daily_engagement: 0
         };
 
-        existing.views += Number(item.views) || 0;
-        existing.engagement += Number(item.likes || 0) + Number(item.comments || 0);
-        existing.subscribers += Number(item.subscribers) || 0;
+        existing.daily_views += dailyViews;
+        existing.daily_engagement += dailyEngagement;
+        existing.subscribers += dailySubscribers; // Daily subscriber changes
+        existing.views += dailyViews; // For compatibility
+        existing.engagement += dailyEngagement; // For compatibility
         dateMap.set(date, existing);
 
-        // Individual creator data
+        // Individual creator data - use daily values
         if (!creatorDataMap.has(creatorId)) {
           creatorDataMap.set(creatorId, []);
         }
@@ -105,21 +122,21 @@ export const useRosterAnalytics = () => {
         const existingCreatorData = creatorData.find(d => d.date === date);
 
         if (existingCreatorData) {
-          existingCreatorData.views += Number(item.views) || 0;
-          existingCreatorData.engagement += Number(item.likes || 0) + Number(item.comments || 0);
-          existingCreatorData.subscribers = Number(item.subscribers) || 0; // Latest value
-          existingCreatorData.daily_views += Number(item.views) || 0;
-          existingCreatorData.daily_engagement += Number(item.likes || 0) + Number(item.comments || 0);
+          existingCreatorData.daily_views += dailyViews;
+          existingCreatorData.daily_engagement += dailyEngagement;
+          existingCreatorData.views += dailyViews;
+          existingCreatorData.engagement += dailyEngagement;
+          existingCreatorData.subscribers = Number(item.subscribers) || 0; // Keep total subscribers
         } else {
           creatorData.push({
             creator_id: creatorId,
             creator_name: creatorName,
             date,
-            views: Number(item.views) || 0,
-            engagement: Number(item.likes || 0) + Number(item.comments || 0),
-            subscribers: Number(item.subscribers) || 0,
-            daily_views: Number(item.views) || 0,
-            daily_engagement: Number(item.likes || 0) + Number(item.comments || 0)
+            views: dailyViews, // Use daily values
+            engagement: dailyEngagement,
+            subscribers: Number(item.subscribers) || 0, // Total subscribers for the creator
+            daily_views: dailyViews,
+            daily_engagement: dailyEngagement
           });
         }
       });
@@ -134,8 +151,8 @@ export const useRosterAnalytics = () => {
         flatCreatorData.push(...creatorData);
       });
 
-      console.log('Processed analytics data:', processedData);
-      console.log('Creator analytics data:', flatCreatorData);
+      console.log('Processed analytics data (using daily values):', processedData);
+      console.log('Creator analytics data (using daily values):', flatCreatorData);
       
       setAnalyticsData(processedData);
       setCreatorAnalyticsData(flatCreatorData);
@@ -201,6 +218,12 @@ export const useRosterAnalytics = () => {
       });
 
       await Promise.all(refreshPromises);
+
+      // Recalculate daily metrics after refresh
+      const { error: calcError } = await supabase.rpc('calculate_daily_youtube_metrics');
+      if (calcError) {
+        console.error('Error recalculating daily metrics:', calcError);
+      }
 
       toast({
         title: "Success",
