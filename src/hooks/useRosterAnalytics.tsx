@@ -24,13 +24,16 @@ export const useRosterAnalytics = () => {
     dateRange?: DateRange,
     platform?: string
   ) => {
-    if (!user || creatorIds.length === 0) return;
+    if (!user || creatorIds.length === 0) {
+      console.log('No user or creators provided:', { user: !!user, creatorIds });
+      return;
+    }
 
     setLoading(true);
     try {
       console.log('Fetching roster analytics for creators:', creatorIds);
 
-      // Get YouTube analytics data for the selected creators
+      // Get YouTube analytics data for ALL selected creators
       const { data: analyticsData, error } = await supabase
         .from('youtube_analytics')
         .select(`
@@ -54,7 +57,7 @@ export const useRosterAnalytics = () => {
 
       console.log('Raw analytics data:', analyticsData);
 
-      // Process the data by date
+      // Process the data by date - aggregate across ALL creators for each date
       const dateMap = new Map<string, RosterAnalyticsData>();
       
       (analyticsData || []).forEach(item => {
@@ -69,10 +72,12 @@ export const useRosterAnalytics = () => {
           videosPosted: 0
         };
 
-        // Sum up the data for each date
+        // Sum up the data for each date across all creators
         existing.views += Number(item.views) || 0;
         existing.engagement += Number(item.likes || 0) + Number(item.comments || 0);
-        existing.subscribers = Math.max(existing.subscribers, Number(item.subscribers) || 0);
+        
+        // For subscribers, we want the sum across all creators for that date
+        existing.subscribers += Number(item.subscribers) || 0;
 
         dateMap.set(date, existing);
       });
@@ -97,7 +102,10 @@ export const useRosterAnalytics = () => {
   }, [user, toast]);
 
   const refreshAnalyticsData = useCallback(async (creatorIds: string[]) => {
-    if (!user || creatorIds.length === 0) return;
+    if (!user || creatorIds.length === 0) {
+      console.log('No user or creators provided for refresh:', { user: !!user, creatorIds });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -112,10 +120,10 @@ export const useRosterAnalytics = () => {
 
       if (creatorsError) throw creatorsError;
 
-      console.log('Creators data:', creatorsData);
+      console.log('Creators data for refresh:', creatorsData);
 
-      // Refresh data for each creator with YouTube channel
-      for (const creator of creatorsData || []) {
+      // Process each creator with YouTube channel
+      const refreshPromises = (creatorsData || []).map(async (creator) => {
         const channelLinks = creator.channel_links as any || {};
         const youtubeUrl = channelLinks.youtube;
 
@@ -142,7 +150,10 @@ export const useRosterAnalytics = () => {
         } else {
           console.log(`No YouTube URL found for ${creator.creator_name}`);
         }
-      }
+      });
+
+      // Wait for all refresh operations to complete
+      await Promise.all(refreshPromises);
 
       toast({
         title: "Success",

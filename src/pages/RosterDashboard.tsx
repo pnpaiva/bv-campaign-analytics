@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
-import DailyAnalyticsTable from "@/components/DailyAnalyticsTable";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
 import RosterAnalyticsTable from "@/components/RosterAnalyticsTable";
@@ -19,14 +19,13 @@ const RosterDashboard = () => {
   const { user } = useAuth();
   const { analyticsData, loading: analyticsLoading, fetchRosterAnalytics, refreshAnalyticsData } = useRosterAnalytics();
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
-  const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
     to: new Date()
   });
   const [refreshing, setRefreshing] = useState(false);
 
-  // Helper functions remain the same
+  // Helper functions
   const getJsonObject = useCallback((jsonObj: any): Record<string, any> => {
     if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
       return jsonObj;
@@ -45,21 +44,11 @@ const RosterDashboard = () => {
     return Boolean(getStringValue(jsonObj, key));
   }, [getStringValue]);
 
-  // Initialize selected creators to include all
-  useEffect(() => {
-    if (creators.length > 0 && selectedCreators.length === 0) {
-      setSelectedCreators(creators.map(c => c.id));
-    }
-  }, [creators, selectedCreators.length]);
-
-  // Memoize filtered creators
+  // Always use ALL creators - simplified approach
   const filteredCreators = useMemo(() => {
     let filtered = creators;
     
-    if (selectedCreators.length > 0) {
-      filtered = filtered.filter(creator => selectedCreators.includes(creator.id));
-    }
-    
+    // Only filter by platform if not "all"
     if (selectedPlatform !== "all") {
       filtered = filtered.filter(creator => {
         const channelLinks = getJsonObject(creator.channel_links);
@@ -79,10 +68,12 @@ const RosterDashboard = () => {
     }
     
     return filtered;
-  }, [creators, selectedCreators, selectedPlatform, getJsonObject, hasValue]);
+  }, [creators, selectedPlatform, getJsonObject, hasValue]);
 
-  // Fetch analytics data when filters change
+  // Fetch analytics data when creators or filters change
   useEffect(() => {
+    console.log('Fetching analytics for creators:', filteredCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    
     if (filteredCreators.length > 0) {
       fetchRosterAnalytics(
         filteredCreators.map(c => c.id),
@@ -96,16 +87,20 @@ const RosterDashboard = () => {
   const handleRefreshAnalytics = async () => {
     if (filteredCreators.length === 0) return;
     
+    console.log('Refreshing analytics for creators:', filteredCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    
     setRefreshing(true);
     try {
       await refreshAnalyticsData(filteredCreators.map(c => c.id));
       
-      // Refetch the processed data
-      await fetchRosterAnalytics(
-        filteredCreators.map(c => c.id),
-        dateRange,
-        selectedPlatform === "all" ? undefined : selectedPlatform
-      );
+      // Refetch the processed data after a short delay
+      setTimeout(() => {
+        fetchRosterAnalytics(
+          filteredCreators.map(c => c.id),
+          dateRange,
+          selectedPlatform === "all" ? undefined : selectedPlatform
+        );
+      }, 3000);
     } catch (error) {
       console.error('Error refreshing analytics:', error);
     } finally {
@@ -113,54 +108,29 @@ const RosterDashboard = () => {
     }
   };
 
-  // Get aggregated metrics from SQL view
-  const [aggregatedAnalytics, setAggregatedAnalytics] = useState({
-    totalViews: 0,
-    totalEngagement: 0,
-    totalSubscribers: 0,
-    averageEngagementRate: 0,
-  });
+  // Get aggregated metrics from analytics data
+  const aggregatedAnalytics = useMemo(() => {
+    if (analyticsData.length === 0) {
+      return {
+        totalViews: 0,
+        totalEngagement: 0,
+        totalSubscribers: 0,
+        averageEngagementRate: 0,
+      };
+    }
 
-  // Fetch summary data whenever creators change
-  useEffect(() => {
-    const fetchSummaryData = async () => {
-      if (!user || filteredCreators.length === 0) return;
+    const latestData = analyticsData[analyticsData.length - 1];
+    const totalViews = analyticsData.reduce((sum, item) => sum + (item.views || 0), 0);
+    const totalEngagement = analyticsData.reduce((sum, item) => sum + (item.engagement || 0), 0);
+    const averageEngagementRate = totalViews > 0 ? (totalEngagement / totalViews) * 100 : 0;
 
-      try {
-        const { data: summaryData, error } = await supabase
-          .from('roster_analytics_summary')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('creator_roster_id', filteredCreators.map(c => c.id));
-
-        if (error) throw error;
-
-        if (summaryData && summaryData.length > 0) {
-          const totals = summaryData.reduce((acc, item) => ({
-            totalViews: acc.totalViews + (Number(item.current_views) || 0),
-            totalEngagement: acc.totalEngagement + (Number(item.current_subscribers) || 0),
-            totalSubscribers: acc.totalSubscribers + (Number(item.current_subscribers) || 0),
-            totalEngagementRate: acc.totalEngagementRate + (Number(item.current_engagement_rate) || 0),
-          }), { totalViews: 0, totalEngagement: 0, totalSubscribers: 0, totalEngagementRate: 0 });
-
-          const averageEngagementRate = summaryData.length > 0 
-            ? totals.totalEngagementRate / summaryData.length 
-            : 0;
-
-          setAggregatedAnalytics({
-            totalViews: totals.totalViews,
-            totalEngagement: totals.totalEngagement,
-            totalSubscribers: totals.totalSubscribers,
-            averageEngagementRate
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching summary data:', error);
-      }
+    return {
+      totalViews,
+      totalEngagement,
+      totalSubscribers: latestData?.subscribers || 0,
+      averageEngagementRate
     };
-
-    fetchSummaryData();
-  }, [filteredCreators, user]);
+  }, [analyticsData]);
 
   if (!user) {
     return (
@@ -187,6 +157,9 @@ const RosterDashboard = () => {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Roster Dashboard</h1>
               <p className="text-gray-600 mt-2">Overview of your creator roster and analytics</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Showing data for {totalCreators} creator{totalCreators !== 1 ? 's' : ''}
+              </p>
             </div>
             <div className="flex gap-4 flex-wrap">
               <DateRangePicker
@@ -203,27 +176,6 @@ const RosterDashboard = () => {
                   <SelectItem value="youtube">YouTube</SelectItem>
                   <SelectItem value="instagram">Instagram</SelectItem>
                   <SelectItem value="tiktok">TikTok</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select 
-                value={selectedCreators.length === creators.length ? "all" : "custom"} 
-                onValueChange={(value) => {
-                  if (value === "all") {
-                    setSelectedCreators(creators.map(c => c.id));
-                  }
-                }}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by creators" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Creators ({creators.length})</SelectItem>
-                  {creators.map(creator => (
-                    <SelectItem key={creator.id} value={creator.id}>
-                      {creator.creator_name}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
 
@@ -310,7 +262,7 @@ const RosterDashboard = () => {
               />
             </div>
 
-            {/* Keep existing Analytics Chart but rename it */}
+            {/* Channel Growth Trends Chart */}
             <div className="mb-8">
               <Card>
                 <CardHeader>
@@ -326,7 +278,7 @@ const RosterDashboard = () => {
               </Card>
             </div>
 
-            {/* Creator Metrics */}
+            {/* Creator Performance Breakdown */}
             <Card>
               <CardHeader>
                 <CardTitle>Creator Performance Breakdown</CardTitle>
@@ -335,8 +287,8 @@ const RosterDashboard = () => {
                 {filteredCreators.length === 0 ? (
                   <p className="text-center text-gray-600 py-8">
                     {selectedPlatform === "all" 
-                      ? "No creators selected. Please select creators to view their performance."
-                      : `No creators found for ${selectedPlatform}. Try selecting a different platform or creators.`
+                      ? "No creators found. Please add creators to your roster."
+                      : `No creators found for ${selectedPlatform}. Try selecting a different platform.`
                     }
                   </p>
                 ) : (
@@ -350,19 +302,12 @@ const RosterDashboard = () => {
                         
                         const platforms = [];
                         if ((selectedPlatform === "all" || selectedPlatform === "youtube") && hasValue(channelLinks, 'youtube')) {
-                          // Use real data from analytics if available
-                          const creatorData = analyticsData.reduce((acc, item) => ({
-                            views: acc.views + item.views,
-                            engagement: acc.engagement + item.engagement,
-                            subscribers: Math.max(acc.subscribers, item.subscribers) // Take the latest subscriber count
-                          }), { views: 0, engagement: 0, subscribers: 0 });
-
                           platforms.push({
                             platform: 'YouTube',
-                            views: creatorData.views || 0,
-                            engagement: creatorData.engagement || 0,
-                            subscribers: creatorData.subscribers || 0,
-                            engagementRate: creatorData.views > 0 ? ((creatorData.engagement / creatorData.views) * 100).toFixed(2) : "0.00"
+                            views: aggregatedAnalytics.totalViews || 0,
+                            engagement: aggregatedAnalytics.totalEngagement || 0,
+                            subscribers: aggregatedAnalytics.totalSubscribers || 0,
+                            engagementRate: aggregatedAnalytics.averageEngagementRate.toFixed(2)
                           });
                         }
                         if ((selectedPlatform === "all" || selectedPlatform === "instagram") && hasValue(socialHandles, 'instagram')) {
