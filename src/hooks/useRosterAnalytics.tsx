@@ -114,10 +114,10 @@ export const useRosterAnalytics = () => {
         if (youtubeUrl) {
           console.log(`Fetching fresh YouTube data for ${creator.creator_name}...`);
           
-          const { data, error } = await supabase.functions.invoke('fetch-youtube-analytics', {
+          const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
             body: {
-              campaign_id: creator.id,
-              video_url: youtubeUrl
+              creator_roster_id: creator.id,
+              channel_url: youtubeUrl
             }
           });
 
