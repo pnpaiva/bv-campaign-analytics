@@ -19,37 +19,37 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { creator_roster_id, channel_url } = await req.json();
+    const { campaign_id, video_url } = await req.json();
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
 
-    console.log('=== Direct YouTube Channel Analytics Function Called ===');
-    console.log('Creator Roster ID:', creator_roster_id);
-    console.log('Channel URL:', channel_url);
+    console.log('=== Direct YouTube Analytics Function Called ===');
+    console.log('Campaign ID:', campaign_id);
+    console.log('Video URL:', video_url);
     console.log('API Key available:', !!youtubeApiKey);
 
-    if (!creator_roster_id) {
-      throw new Error('Creator roster ID is required');
+    if (!campaign_id) {
+      throw new Error('Campaign ID is required');
     }
 
-    if (!channel_url) {
-      throw new Error('Channel URL is required');
+    if (!video_url) {
+      throw new Error('Video URL is required');
     }
 
     if (!youtubeApiKey) {
       throw new Error('YouTube API key not configured');
     }
 
-    // Extract channel info from URL
-    const channelInfo = extractChannelInfo(channel_url);
-    if (!channelInfo) {
-      console.error('Failed to extract channel info from URL:', channel_url);
-      throw new Error('Invalid YouTube channel URL format');
+    // Extract video ID from URL
+    const videoId = extractVideoId(video_url);
+    if (!videoId) {
+      console.error('Failed to extract video ID from URL:', video_url);
+      throw new Error('Invalid YouTube URL format');
     }
 
-    console.log('Extracted channel info:', channelInfo);
+    console.log('Extracted video ID:', videoId);
 
     // Check cache first
-    const cacheKey = `youtube_channel_${channelInfo.id || channelInfo.handle}`;
+    const cacheKey = `youtube_video_${videoId}`;
     const { data: cachedData } = await supabaseClient
       .from('api_cache')
       .select('*')
@@ -60,18 +60,13 @@ serve(async (req) => {
     let analyticsData;
 
     if (cachedData) {
-      console.log('Using cached data for channel:', channelInfo.id || channelInfo.handle);
+      console.log('Using cached data for video:', videoId);
       analyticsData = cachedData.response_data;
     } else {
-      console.log('Fetching fresh data for channel:', channelInfo.id || channelInfo.handle);
+      console.log('Fetching fresh data for video:', videoId);
       
-      // Build YouTube API URL for channel statistics
-      let youtubeUrl;
-      if (channelInfo.id) {
-        youtubeUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelInfo.id}&key=${youtubeApiKey}`;
-      } else if (channelInfo.handle) {
-        youtubeUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&forHandle=${channelInfo.handle}&key=${youtubeApiKey}`;
-      }
+      // Fetch video statistics from YouTube API
+      const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoId}&key=${youtubeApiKey}`;
       
       console.log('Making YouTube API request...');
       const response = await fetch(youtubeUrl);
@@ -88,24 +83,28 @@ serve(async (req) => {
       console.log('YouTube API response data:', JSON.stringify(data, null, 2));
       
       if (!data.items || data.items.length === 0) {
-        console.error('No channel found in YouTube response');
-        throw new Error('Channel not found on YouTube');
+        console.error('No video found in YouTube response');
+        throw new Error('Video not found on YouTube');
       }
 
-      const channel = data.items[0];
-      const stats = channel.statistics;
+      const video = data.items[0];
+      const stats = video.statistics;
       
       analyticsData = {
-        channel_id: channel.id,
-        channel_name: channel.snippet.title,
-        channel_handle: channelInfo.handle,
-        subscribers: parseInt(stats.subscriberCount) || 0,
         views: parseInt(stats.viewCount) || 0,
-        video_count: parseInt(stats.videoCount) || 0,
-        engagement: 0 // Channel-level engagement isn't directly available
+        likes: parseInt(stats.likeCount) || 0,
+        comments: parseInt(stats.commentCount) || 0,
+        engagement: (parseInt(stats.likeCount) || 0) + (parseInt(stats.commentCount) || 0),
+        title: video.snippet.title,
+        publishedAt: video.snippet.publishedAt
       };
 
-      console.log('Processed channel analytics data:', analyticsData);
+      const engagementRate = analyticsData.views > 0 
+        ? (analyticsData.engagement / analyticsData.views) * 100 
+        : 0;
+
+      console.log('Processed analytics data:', analyticsData);
+      console.log('Calculated engagement rate:', engagementRate);
 
       // Cache the response for 1 hour
       await supabaseClient
@@ -117,29 +116,42 @@ serve(async (req) => {
           expires_at: new Date(Date.now() + 3600000).toISOString() // 1 hour
         });
 
-      console.log('Cached channel analytics data');
+      console.log('Cached video analytics data');
     }
 
-    // Store the channel analytics in youtube_analytics table
+    // Store analytics data in analytics_data table
     const { error: insertError } = await supabaseClient
-      .from('youtube_analytics')
+      .from('analytics_data')
       .upsert({
-        creator_roster_id,
-        channel_id: analyticsData.channel_id,
-        channel_name: analyticsData.channel_name,
-        channel_handle: analyticsData.channel_handle,
-        subscribers: analyticsData.subscribers,
+        campaign_id,
+        platform: 'youtube',
+        content_url: video_url,
         views: analyticsData.views,
-        date_recorded: new Date().toISOString().split('T')[0],
+        engagement: analyticsData.engagement,
+        likes: analyticsData.likes,
+        comments: analyticsData.comments,
+        engagement_rate: analyticsData.views > 0 ? ((analyticsData.engagement / analyticsData.views) * 100) : 0,
         fetched_at: new Date().toISOString()
       });
 
     if (insertError) {
-      console.error('Error inserting YouTube analytics data:', insertError);
+      console.error('Error inserting analytics data:', insertError);
       throw insertError;
     }
 
-    console.log('Successfully stored YouTube channel analytics in database');
+    console.log('Successfully stored YouTube analytics data');
+
+    // Update campaign totals
+    const { error: updateError } = await supabaseClient.rpc('update_campaign_totals', {
+      campaign_uuid: campaign_id
+    });
+
+    if (updateError) {
+      console.error('Error updating campaign totals:', updateError);
+      throw updateError;
+    }
+
+    console.log('Successfully updated campaign totals');
 
     return new Response(
       JSON.stringify({ 
@@ -166,40 +178,8 @@ serve(async (req) => {
   }
 });
 
-function extractChannelInfo(url: string): { id?: string; handle?: string } | null {
-  try {
-    const urlObj = new URL(url);
-    
-    // Handle different YouTube channel URL formats
-    if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
-      const pathname = urlObj.pathname;
-      
-      // Format: /channel/UCxxxxxx
-      if (pathname.startsWith('/channel/')) {
-        const channelId = pathname.split('/channel/')[1];
-        return { id: channelId };
-      }
-      
-      // Format: /@handle or /c/customname or /user/username
-      if (pathname.startsWith('/@')) {
-        const handle = pathname.split('/@')[1];
-        return { handle: handle };
-      }
-      
-      if (pathname.startsWith('/c/')) {
-        const customName = pathname.split('/c/')[1];
-        return { handle: customName };
-      }
-      
-      if (pathname.startsWith('/user/')) {
-        const username = pathname.split('/user/')[1];
-        return { handle: username };
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error parsing channel URL:', error);
-    return null;
-  }
+function extractVideoId(url: string): string | null {
+  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
 }

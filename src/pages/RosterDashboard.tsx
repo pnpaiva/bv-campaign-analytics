@@ -8,6 +8,7 @@ import { useRosterAnalytics } from "@/hooks/useRosterAnalytics";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
+import DailyAnalyticsTable from "@/components/DailyAnalyticsTable";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { DateRange } from "react-day-picker";
 
@@ -275,6 +276,14 @@ const RosterDashboard = () => {
                   <div className="text-2xl font-bold">{aggregatedAnalytics.averageEngagementRate.toFixed(1)}%</div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Daily Analytics Table */}
+            <div className="mb-8">
+              <DailyAnalyticsTable
+                data={analyticsData}
+                loading={analyticsLoading}
+              />
             </div>
 
             {/* Analytics Chart */}
