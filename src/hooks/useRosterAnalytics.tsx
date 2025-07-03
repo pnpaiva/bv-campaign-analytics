@@ -81,8 +81,11 @@ export const useRosterAnalytics = () => {
       };
 
       existing.views += Number(item.views) || 0;
-      existing.engagement += Number(item.likes) + Number(item.comments) || 0;
-      existing.subscribers += Number(item.subscribers) || 0;
+      // For channel analytics, use subscriber growth as engagement metric since 
+      // likes/comments are not available at channel level
+      existing.engagement += Number(item.subscribers) || 0;
+      // Use the maximum subscribers count for the day (latest reading)
+      existing.subscribers = Math.max(existing.subscribers, Number(item.subscribers) || 0);
 
       dateMap.set(date, existing);
     });

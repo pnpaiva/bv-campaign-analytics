@@ -142,14 +142,15 @@ const DailyAnalyticsTable: React.FC<DailyAnalyticsTableProps> = ({ data, loading
                   <th className="text-left p-2 font-medium">Date</th>
                   <th className="text-right p-2 font-medium">Subscribers</th>
                   <th className="text-right p-2 font-medium">Views</th>
-                  <th className="text-right p-2 font-medium">Engagement</th>
-                  <th className="text-right p-2 font-medium">Growth</th>
+                  <th className="text-right p-2 font-medium">Subs (Engagement)</th>
+                  <th className="text-right p-2 font-medium">Subs Growth</th>
                 </tr>
               </thead>
               <tbody>
                 {data.slice(-7).map((item, index) => {
                   const prevItem = index > 0 ? data[data.indexOf(item) - 1] : null;
                   const viewsGrowth = prevItem ? item.views - prevItem.views : 0;
+                  const subscriberGrowth = prevItem ? item.subscribers - prevItem.subscribers : 0;
                   
                   return (
                     <tr key={item.date} className="border-b hover:bg-muted/50">
@@ -165,12 +166,18 @@ const DailyAnalyticsTable: React.FC<DailyAnalyticsTableProps> = ({ data, loading
                       </td>
                       <td className="text-right p-2 font-mono">
                         {Number(item.subscribers).toLocaleString()}
+                        {subscriberGrowth !== 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {subscriberGrowth > 0 ? '+' : ''}{subscriberGrowth.toLocaleString()}
+                          </div>
+                        )}
                       </td>
                       <td className="text-right p-2 font-mono">
                         {Number(item.views).toLocaleString()}
                       </td>
                       <td className="text-right p-2 font-mono">
-                        {Number(item.engagement).toLocaleString()}
+                        {/* For channels, show subscriber count as engagement metric */}
+                        {Number(item.subscribers).toLocaleString()}
                       </td>
                       <td className="text-right p-2">
                         {viewsGrowth !== 0 && (
