@@ -311,6 +311,42 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_roster: {
+        Row: {
+          channel_links: Json | null
+          channel_stats: Json | null
+          created_at: string
+          creator_name: string
+          id: string
+          last_updated: string | null
+          social_media_handles: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_links?: Json | null
+          channel_stats?: Json | null
+          created_at?: string
+          creator_name: string
+          id?: string
+          last_updated?: string | null
+          social_media_handles?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_links?: Json | null
+          channel_stats?: Json | null
+          created_at?: string
+          creator_name?: string
+          id?: string
+          last_updated?: string | null
+          social_media_handles?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       creators: {
         Row: {
           avatar_url: string | null
@@ -340,6 +376,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      roster_analytics: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: string
+          metric_type: string
+          metric_value: number | null
+          platform: string
+          roster_id: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          metric_type: string
+          metric_value?: number | null
+          platform: string
+          roster_id: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          metric_type?: string
+          metric_value?: number | null
+          platform?: string
+          roster_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roster_analytics_roster_id_fkey"
+            columns: ["roster_id"]
+            isOneToOne: false
+            referencedRelation: "creator_roster"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
