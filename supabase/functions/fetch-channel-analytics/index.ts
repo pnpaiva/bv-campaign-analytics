@@ -101,7 +101,7 @@ serve(async (req) => {
         subscribers: parseInt(stats.subscriberCount) || 0,
         views: parseInt(stats.viewCount) || 0,
         video_count: parseInt(stats.videoCount) || 0,
-        engagement: parseInt(stats.subscriberCount) || 0 // Use subscribers as engagement for channels
+        engagement: Math.round((parseInt(stats.subscriberCount) || 0) * 0.01) // Rough engagement estimate: 1% of subscribers
       };
 
       console.log('Processed channel analytics data:', analyticsData);
@@ -129,6 +129,9 @@ serve(async (req) => {
         channel_handle: analyticsData.channel_handle,
         subscribers: analyticsData.subscribers,
         views: analyticsData.views,
+        likes: 0, // Channel level doesn't have likes
+        comments: 0, // Channel level doesn't have comments  
+        engagement_rate: analyticsData.views > 0 ? ((analyticsData.engagement / analyticsData.views) * 100) : 0,
         date_recorded: new Date().toISOString().split('T')[0],
         fetched_at: new Date().toISOString()
       });

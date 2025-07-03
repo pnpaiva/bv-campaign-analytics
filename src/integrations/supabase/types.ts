@@ -581,6 +581,10 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_channel_engagement: {
+        Args: { p_subscribers: number; p_views: number }
+        Returns: number
+      }
       cleanup_expired_cache: {
         Args: Record<PropertyKey, never>
         Returns: undefined
