@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface RosterCreator {
   id: string;
   creator_name: string;
-  channel_links: Record<string, string>;
-  social_media_handles: Record<string, string>;
-  channel_stats: Record<string, any>;
+  channel_links: Json;
+  social_media_handles: Json;
+  channel_stats: Json;
   last_updated: string;
   created_at: string;
   updated_at: string;
@@ -44,8 +45,8 @@ export const useRoster = () => {
 
   const addCreator = async (creatorData: {
     creator_name: string;
-    channel_links: Record<string, string>;
-    social_media_handles: Record<string, string>;
+    channel_links: Json;
+    social_media_handles: Json;
   }) => {
     if (!user) return;
 
