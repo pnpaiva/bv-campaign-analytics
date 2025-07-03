@@ -8,6 +8,19 @@ const RosterDashboard = () => {
   const { creators, loading } = useRoster();
   const { user } = useAuth();
 
+  // Helper function to safely get string value from Json
+  const getStringValue = (jsonObj: any, key: string): string => {
+    if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
+      return jsonObj[key] || '';
+    }
+    return '';
+  };
+
+  // Helper function to check if a value exists
+  const hasValue = (jsonObj: any, key: string): boolean => {
+    return Boolean(getStringValue(jsonObj, key));
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -21,10 +34,10 @@ const RosterDashboard = () => {
   }
 
   const totalCreators = creators.length;
-  const creatorsWithYoutube = creators.filter(c => c.channel_links?.youtube).length;
-  const creatorsWithInstagram = creators.filter(c => c.social_media_handles?.instagram).length;
-  const creatorsWithTiktok = creators.filter(c => c.social_media_handles?.tiktok).length;
-  const creatorsWithTwitter = creators.filter(c => c.social_media_handles?.twitter).length;
+  const creatorsWithYoutube = creators.filter(c => hasValue(c.channel_links, 'youtube')).length;
+  const creatorsWithInstagram = creators.filter(c => hasValue(c.social_media_handles, 'instagram')).length;
+  const creatorsWithTiktok = creators.filter(c => hasValue(c.social_media_handles, 'tiktok')).length;
+  const creatorsWithTwitter = creators.filter(c => hasValue(c.social_media_handles, 'twitter')).length;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -93,49 +106,54 @@ const RosterDashboard = () => {
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {creators.map((creator) => (
-                      <div key={creator.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <h3 className="font-semibold">{creator.creator_name}</h3>
-                          <div className="flex gap-4 mt-2 text-sm text-gray-600">
-                            {creator.channel_links?.youtube && (
-                              <div className="flex items-center gap-1">
-                                <Youtube className="h-3 w-3" />
-                                <span>YouTube</span>
-                              </div>
-                            )}
-                            {creator.social_media_handles?.instagram && (
-                              <div className="flex items-center gap-1">
-                                <Instagram className="h-3 w-3" />
-                                <span>Instagram</span>
-                              </div>
-                            )}
-                            {creator.social_media_handles?.tiktok && (
-                              <div className="flex items-center gap-1">
-                                <span className="font-bold">T</span>
-                                <span>TikTok</span>
-                              </div>
-                            )}
-                            {creator.social_media_handles?.twitter && (
-                              <div className="flex items-center gap-1">
-                                <Twitter className="h-3 w-3" />
-                                <span>Twitter</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500">
-                            Added {new Date(creator.created_at).toLocaleDateString()}
-                          </div>
-                          {creator.last_updated && (
-                            <div className="text-xs text-gray-400">
-                              Updated {new Date(creator.last_updated).toLocaleDateString()}
+                    {creators.map((creator) => {
+                      const channelLinks = creator.channel_links as Record<string, any> || {};
+                      const socialHandles = creator.social_media_handles as Record<string, any> || {};
+                      
+                      return (
+                        <div key={creator.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div>
+                            <h3 className="font-semibold">{creator.creator_name}</h3>
+                            <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                              {hasValue(channelLinks, 'youtube') && (
+                                <div className="flex items-center gap-1">
+                                  <Youtube className="h-3 w-3" />
+                                  <span>YouTube</span>
+                                </div>
+                              )}
+                              {hasValue(socialHandles, 'instagram') && (
+                                <div className="flex items-center gap-1">
+                                  <Instagram className="h-3 w-3" />
+                                  <span>Instagram</span>
+                                </div>
+                              )}
+                              {hasValue(socialHandles, 'tiktok') && (
+                                <div className="flex items-center gap-1">
+                                  <span className="font-bold">T</span>
+                                  <span>TikTok</span>
+                                </div>
+                              )}
+                              {hasValue(socialHandles, 'twitter') && (
+                                <div className="flex items-center gap-1">
+                                  <Twitter className="h-3 w-3" />
+                                  <span>Twitter</span>
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">
+                              Added {new Date(creator.created_at).toLocaleDateString()}
+                            </div>
+                            {creator.last_updated && (
+                              <div className="text-xs text-gray-400">
+                                Updated {new Date(creator.last_updated).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

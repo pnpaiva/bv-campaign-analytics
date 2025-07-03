@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Trash2, Edit, Plus, ExternalLink } from "lucide-react";
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
+import type { RosterCreator } from "@/hooks/useRoster";
 
 const Roster = () => {
   const { creators, loading, addCreator, updateCreator, deleteCreator } = useRoster();
   const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingCreator, setEditingCreator] = useState(null);
+  const [editingCreator, setEditingCreator] = useState<RosterCreator | null>(null);
   const [formData, setFormData] = useState({
     creator_name: '',
     youtube_channel: '',
@@ -32,7 +33,7 @@ const Roster = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const creatorData = {
@@ -58,15 +59,26 @@ const Roster = () => {
     resetForm();
   };
 
-  const handleEdit = (creator) => {
+  const handleEdit = (creator: RosterCreator) => {
     setEditingCreator(creator);
+    const channelLinks = creator.channel_links as Record<string, any> || {};
+    const socialHandles = creator.social_media_handles as Record<string, any> || {};
+    
     setFormData({
       creator_name: creator.creator_name,
-      youtube_channel: creator.channel_links?.youtube || '',
-      instagram_handle: creator.social_media_handles?.instagram || '',
-      tiktok_handle: creator.social_media_handles?.tiktok || '',
-      twitter_handle: creator.social_media_handles?.twitter || '',
+      youtube_channel: channelLinks?.youtube || '',
+      instagram_handle: socialHandles?.instagram || '',
+      tiktok_handle: socialHandles?.tiktok || '',
+      twitter_handle: socialHandles?.twitter || '',
     });
+  };
+
+  // Helper function to safely get string value from Json
+  const getStringValue = (jsonObj: any, key: string): string => {
+    if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
+      return jsonObj[key] || '';
+    }
+    return '';
   };
 
   if (!user) {
@@ -164,66 +176,71 @@ const Roster = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {creators.map((creator) => (
-              <Card key={creator.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {creator.creator_name}
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(creator)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteCreator(creator.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {creator.channel_links?.youtube && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">YouTube:</span>
-                        <a
-                          href={creator.channel_links.youtube}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
+            {creators.map((creator) => {
+              const channelLinks = creator.channel_links as Record<string, any> || {};
+              const socialHandles = creator.social_media_handles as Record<string, any> || {};
+              
+              return (
+                <Card key={creator.id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      {creator.creator_name}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(creator)}
                         >
-                          Channel <ExternalLink className="h-3 w-3" />
-                        </a>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteCreator(creator.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    )}
-                    {creator.social_media_handles?.instagram && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Instagram:</span>
-                        <span className="text-sm">{creator.social_media_handles.instagram}</span>
-                      </div>
-                    )}
-                    {creator.social_media_handles?.tiktok && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">TikTok:</span>
-                        <span className="text-sm">{creator.social_media_handles.tiktok}</span>
-                      </div>
-                    )}
-                    {creator.social_media_handles?.twitter && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Twitter:</span>
-                        <span className="text-sm">{creator.social_media_handles.twitter}</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {getStringValue(channelLinks, 'youtube') && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">YouTube:</span>
+                          <a
+                            href={getStringValue(channelLinks, 'youtube')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
+                          >
+                            Channel <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                      {getStringValue(socialHandles, 'instagram') && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Instagram:</span>
+                          <span className="text-sm">{getStringValue(socialHandles, 'instagram')}</span>
+                        </div>
+                      )}
+                      {getStringValue(socialHandles, 'tiktok') && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">TikTok:</span>
+                          <span className="text-sm">{getStringValue(socialHandles, 'tiktok')}</span>
+                        </div>
+                      )}
+                      {getStringValue(socialHandles, 'twitter') && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Twitter:</span>
+                          <span className="text-sm">{getStringValue(socialHandles, 'twitter')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
