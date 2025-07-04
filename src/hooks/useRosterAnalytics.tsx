@@ -87,7 +87,7 @@ export const useRosterAnalytics = () => {
         return;
       }
 
-      // Process aggregated data by date - sum daily values across creators
+      // Process aggregated data by date - sum ONLY daily values across creators
       const dateMap = new Map<string, RosterAnalyticsData>();
       const creatorDataMap = new Map<string, CreatorAnalyticsData[]>();
       
@@ -98,16 +98,18 @@ export const useRosterAnalytics = () => {
         const creatorId = item.creator_roster_id;
         const creatorName = item.creator_roster?.creator_name || 'Unknown';
 
-        // Use the calculated daily values from the database
-        const dailyViews = Number(item.daily_views) || 0;
-        const dailyEngagement = Number(item.daily_likes || 0) + Number(item.daily_comments || 0);
-        const dailySubscribers = Number(item.daily_subscribers) || 0;
+        // CRITICAL: Use ONLY the calculated daily values, never cumulative
+        const dailyViews = Math.max(0, Number(item.daily_views) || 0);
+        const dailyEngagement = Math.max(0, Number(item.daily_likes || 0) + Number(item.daily_comments || 0));
+        const dailySubscribers = Math.max(0, Number(item.daily_subscribers) || 0);
 
         console.log(`Processing ${creatorName} for ${date}:`, {
           dailyViews,
           dailyEngagement,
           dailySubscribers,
-          totalSubscribers: item.subscribers
+          rawDailyViews: item.daily_views,
+          rawTotalViews: item.views,
+          rawTotalSubscribers: item.subscribers
         });
 
         // Aggregate daily data across all creators for each date
@@ -121,14 +123,15 @@ export const useRosterAnalytics = () => {
           daily_engagement: 0
         };
 
+        // Sum ONLY daily increments
         existing.daily_views += dailyViews;
         existing.daily_engagement += dailyEngagement;
         existing.subscribers += dailySubscribers; // Daily subscriber changes
-        existing.views += dailyViews; // For compatibility
-        existing.engagement += dailyEngagement; // For compatibility
+        existing.views += dailyViews; // For compatibility - use daily views
+        existing.engagement += dailyEngagement; // For compatibility - use daily engagement
         dateMap.set(date, existing);
 
-        // Individual creator data - use daily values
+        // Individual creator data - use daily values ONLY
         if (!creatorDataMap.has(creatorId)) {
           creatorDataMap.set(creatorId, []);
         }
@@ -137,17 +140,18 @@ export const useRosterAnalytics = () => {
         const existingCreatorData = creatorData.find(d => d.date === date);
 
         if (existingCreatorData) {
+          // Sum daily values if there are multiple entries for the same date
           existingCreatorData.daily_views += dailyViews;
           existingCreatorData.daily_engagement += dailyEngagement;
           existingCreatorData.views += dailyViews;
           existingCreatorData.engagement += dailyEngagement;
-          existingCreatorData.subscribers = Number(item.subscribers) || 0; // Keep total subscribers
+          existingCreatorData.subscribers = Number(item.subscribers) || 0; // Keep total subscribers for reference
         } else {
           creatorData.push({
             creator_id: creatorId,
             creator_name: creatorName,
             date,
-            views: dailyViews, // Use daily values
+            views: dailyViews, // Use ONLY daily values
             engagement: dailyEngagement,
             subscribers: Number(item.subscribers) || 0, // Total subscribers for the creator
             daily_views: dailyViews,
@@ -166,8 +170,8 @@ export const useRosterAnalytics = () => {
         flatCreatorData.push(...creatorData);
       });
 
-      console.log('Final processed analytics data:', processedData);
-      console.log('Final creator analytics data:', flatCreatorData);
+      console.log('Final processed analytics data (daily only):', processedData);
+      console.log('Final creator analytics data (daily only):', flatCreatorData);
       
       setAnalyticsData(processedData);
       setCreatorAnalyticsData(flatCreatorData);
@@ -234,7 +238,7 @@ export const useRosterAnalytics = () => {
 
       await Promise.all(refreshPromises);
 
-      // Recalculate daily metrics after refresh with the new function
+      // Recalculate daily metrics after refresh
       const { error: calcError } = await supabase.rpc('calculate_accurate_daily_metrics');
       if (calcError) {
         console.error('Error recalculating daily metrics:', calcError);

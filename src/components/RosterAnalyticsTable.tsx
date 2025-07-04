@@ -35,7 +35,7 @@ interface RosterAnalyticsTableProps {
 }
 
 const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creatorData = [], loading }) => {
-  // Calculate summary statistics using daily values only
+  // Calculate summary statistics using ONLY daily values
   const calculateSummary = () => {
     if (data.length === 0) return null;
 
@@ -90,12 +90,12 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
 
   const summary = calculateSummary();
 
-  // Prepare chart data using daily values only
+  // Prepare chart data using ONLY daily values
   const chartData = data.map(item => ({
     ...item,
     date: format(parseISO(item.date), 'MMM dd'),
-    views: item.daily_views || 0, // Only show daily views
-    engagement: item.daily_engagement || 0, // Only show daily engagement
+    views: item.daily_views || 0, // ONLY daily views
+    engagement: item.daily_engagement || 0, // ONLY daily engagement
     subscribers: item.subscribers || 0, // Daily subscriber changes
     videosPosted: Number(item.videosPosted) || 0
   }));
@@ -194,7 +194,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
         </div>
       )}
 
-      {/* Daily Performance Table */}
+      {/* Daily Performance Table - EXPLICITLY SHOWING DAILY VALUES ONLY */}
       <Card>
         <CardHeader>
           <CardTitle>Daily Performance (Per Day, Not Cumulative)</CardTitle>
