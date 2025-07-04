@@ -51,33 +51,23 @@ export const useVideoAnalytics = () => {
       const fromDate = dateRange?.from?.toISOString().split('T')[0] || '2024-01-01';
       const toDate = dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
 
-      // Use raw query to avoid TypeScript issues until types are updated
+      // Use direct table query to avoid TypeScript issues
+      console.log('Using direct table query for video analytics');
       const { data: videoData, error } = await supabase
-        .rpc('get_daily_video_performance', {
-          p_creator_roster_ids: creatorIds,
-          p_start_date: fromDate,
-          p_end_date: toDate
-        })
-        .then(result => result)
-        .catch(async () => {
-          // Fallback to direct table query if RPC function doesn't exist
-          console.log('RPC function not available, using direct table query');
-          return await supabase
-            .from('video_analytics' as any)
-            .select(`
-              *,
-              creator_roster!inner(
-                id,
-                creator_name,
-                user_id
-              )
-            `)
-            .eq('creator_roster.user_id', user.id)
-            .in('creator_roster_id', creatorIds)
-            .gte('published_at', fromDate)
-            .lte('published_at', toDate)
-            .order('published_at', { ascending: true });
-        });
+        .from('video_analytics' as any)
+        .select(`
+          *,
+          creator_roster!inner(
+            id,
+            creator_name,
+            user_id
+          )
+        `)
+        .eq('creator_roster.user_id', user.id)
+        .in('creator_roster_id', creatorIds)
+        .gte('published_at', fromDate)
+        .lte('published_at', toDate)
+        .order('published_at', { ascending: true });
 
       if (error) {
         console.error('Error fetching video analytics:', error);
