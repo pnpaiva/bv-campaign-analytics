@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
-import { useRosterAnalytics } from "@/hooks/useRosterAnalytics";
+import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
@@ -17,7 +16,7 @@ import RosterAnalyticsTable from "@/components/RosterAnalyticsTable";
 const RosterDashboard = () => {
   const { creators, loading } = useRoster();
   const { user } = useAuth();
-  const { analyticsData, creatorAnalyticsData, loading: analyticsLoading, fetchRosterAnalytics, refreshAnalyticsData } = useRosterAnalytics();
+  const { analyticsData, creatorAnalyticsData, loading: analyticsLoading, fetchVideoAnalytics, refreshVideoAnalytics } = useVideoAnalytics();
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [selectedCreatorIds, setSelectedCreatorIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -82,17 +81,17 @@ const RosterDashboard = () => {
     return filteredCreators.filter(creator => selectedCreatorIds.includes(creator.id));
   }, [filteredCreators, selectedCreatorIds]);
 
-  // Fetch analytics data when active creators or filters change
+  // Fetch video analytics data when active creators or filters change
   useEffect(() => {
     if (activeCreators.length > 0) {
-      console.log('Fetching analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
-      fetchRosterAnalytics(
+      console.log('Fetching video analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
+      fetchVideoAnalytics(
         activeCreators.map(c => c.id),
         dateRange,
         selectedPlatform === "all" ? undefined : selectedPlatform
       );
     }
-  }, [activeCreators, dateRange, selectedPlatform, fetchRosterAnalytics]);
+  }, [activeCreators, dateRange, selectedPlatform, fetchVideoAnalytics]);
 
   // Handle creator selection toggle
   const handleCreatorToggle = (creatorId: string, checked: boolean) => {
@@ -114,31 +113,31 @@ const RosterDashboard = () => {
     setSelectedCreatorIds([]);
   };
 
-  // Refresh analytics with real YouTube data
+  // Refresh video analytics with real YouTube data
   const handleRefreshAnalytics = async () => {
     if (activeCreators.length === 0) return;
     
-    console.log('Refreshing analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    console.log('Refreshing video analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
     
     setRefreshing(true);
     try {
-      await refreshAnalyticsData(activeCreators.map(c => c.id));
+      await refreshVideoAnalytics(activeCreators.map(c => c.id));
       
       setTimeout(() => {
-        fetchRosterAnalytics(
+        fetchVideoAnalytics(
           activeCreators.map(c => c.id),
           dateRange,
           selectedPlatform === "all" ? undefined : selectedPlatform
         );
       }, 3000);
     } catch (error) {
-      console.error('Error refreshing analytics:', error);
+      console.error('Error refreshing video analytics:', error);
     } finally {
       setRefreshing(false);
     }
   };
 
-  // Get aggregated metrics from analytics data using daily values
+  // Get aggregated metrics from video analytics data
   const aggregatedAnalytics = useMemo(() => {
     if (analyticsData.length === 0) {
       return {
@@ -149,7 +148,7 @@ const RosterDashboard = () => {
       };
     }
 
-    // Use daily values for calculations
+    // Use daily values from video analytics
     const totalViews = analyticsData.reduce((sum, item) => sum + (item.daily_views || 0), 0);
     const totalEngagement = analyticsData.reduce((sum, item) => sum + (item.daily_engagement || 0), 0);
     const averageEngagementRate = totalViews > 0 ? (totalEngagement / totalViews) * 100 : 0;
@@ -169,7 +168,7 @@ const RosterDashboard = () => {
     };
   }, [analyticsData, creatorAnalyticsData]);
 
-  // Get individual creator metrics using daily values
+  // Get individual creator metrics using video analytics
   const getCreatorMetrics = useCallback((creatorId: string) => {
     const creatorData = creatorAnalyticsData.filter(d => d.creator_id === creatorId);
     if (creatorData.length === 0) return null;
@@ -210,9 +209,9 @@ const RosterDashboard = () => {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Roster Dashboard</h1>
-              <p className="text-gray-600 mt-2">Overview of your creator roster and analytics</p>
+              <p className="text-gray-600 mt-2">Overview of your creator roster and video analytics</p>
               <p className="text-sm text-gray-500 mt-1">
-                Showing data for {totalCreators} creator{totalCreators !== 1 ? 's' : ''}
+                Showing daily video performance for {totalCreators} creator{totalCreators !== 1 ? 's' : ''}
               </p>
             </div>
             <div className="flex gap-4 flex-wrap">
@@ -235,7 +234,7 @@ const RosterDashboard = () => {
 
               <Button onClick={handleRefreshAnalytics} disabled={refreshing || analyticsLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh Data
+                Refresh Video Data
               </Button>
             </div>
           </div>
@@ -318,7 +317,7 @@ const RosterDashboard = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Daily Views</CardTitle>
+                  <CardTitle className="text-sm font-medium">Daily Video Views</CardTitle>
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -328,7 +327,7 @@ const RosterDashboard = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Avg Engagement</CardTitle>
+                  <CardTitle className="text-sm font-medium">Video Engagement</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -350,7 +349,7 @@ const RosterDashboard = () => {
             <div className="mb-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Channel Performance Trends</CardTitle>
+                  <CardTitle>Daily Video Performance Trends</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <AnalyticsChart 
@@ -365,7 +364,7 @@ const RosterDashboard = () => {
             {/* Creator Performance Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Creator Performance Breakdown</CardTitle>
+                <CardTitle>Creator Video Performance Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
                 {activeCreators.length === 0 ? (
@@ -375,7 +374,7 @@ const RosterDashboard = () => {
                 ) : (
                   <div className="space-y-6">
                     {analyticsLoading ? (
-                      <div className="text-center py-8">Loading analytics data...</div>
+                      <div className="text-center py-8">Loading video analytics data...</div>
                     ) : (
                       activeCreators.map((creator) => {
                         const channelLinks = getJsonObject(creator.channel_links);
