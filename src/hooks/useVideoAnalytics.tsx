@@ -1,5 +1,4 @@
 
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -52,27 +51,38 @@ export const useVideoAnalytics = () => {
       const fromDate = dateRange?.from?.toISOString().split('T')[0] || '2024-01-01';
       const toDate = dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
 
-      // Query video_analytics table directly since the RPC function may not be available yet
+      // Use raw query to avoid TypeScript issues until types are updated
       const { data: videoData, error } = await supabase
-        .from('video_analytics')
-        .select(`
-          *,
-          creator_roster!inner(
-            id,
-            creator_name,
-            user_id
-          )
-        `)
-        .eq('creator_roster.user_id', user.id)
-        .in('creator_roster_id', creatorIds)
-        .gte('published_at', fromDate)
-        .lte('published_at', toDate)
-        .order('published_at', { ascending: true });
+        .rpc('get_daily_video_performance', {
+          p_creator_roster_ids: creatorIds,
+          p_start_date: fromDate,
+          p_end_date: toDate
+        })
+        .then(result => result)
+        .catch(async () => {
+          // Fallback to direct table query if RPC function doesn't exist
+          console.log('RPC function not available, using direct table query');
+          return await supabase
+            .from('video_analytics' as any)
+            .select(`
+              *,
+              creator_roster!inner(
+                id,
+                creator_name,
+                user_id
+              )
+            `)
+            .eq('creator_roster.user_id', user.id)
+            .in('creator_roster_id', creatorIds)
+            .gte('published_at', fromDate)
+            .lte('published_at', toDate)
+            .order('published_at', { ascending: true });
+        });
 
       if (error) {
         console.error('Error fetching video analytics:', error);
         
-        // Fallback to empty data if video_analytics table doesn't exist yet
+        // Show empty state instead of error to prevent UI breaking
         console.log('Video analytics table may not exist yet, showing empty state');
         setAnalyticsData([]);
         setCreatorAnalyticsData([]);
@@ -93,13 +103,13 @@ export const useVideoAnalytics = () => {
       const creatorDataMap = new Map<string, CreatorVideoAnalyticsData[]>();
 
       videoData.forEach((item: any) => {
-        const date = item.published_at?.split('T')[0] || '';
+        const date = item.published_at?.split('T')[0] || item.date_recorded || '';
         if (!date) return;
 
         const creatorId = item.creator_roster_id;
-        const creatorName = item.creator_roster?.creator_name || 'Unknown';
-        const views = Math.max(0, Number(item.views) || 0);
-        const engagement = Math.max(0, Number(item.likes || 0) + Number(item.comments || 0));
+        const creatorName = item.creator_roster?.creator_name || item.creator_name || 'Unknown';
+        const views = Math.max(0, Number(item.views || item.daily_views) || 0);
+        const engagement = Math.max(0, Number(item.likes || 0) + Number(item.comments || 0) || Number(item.daily_engagement) || 0);
 
         console.log(`Processing ${creatorName} for ${date}:`, {
           views,
@@ -146,7 +156,7 @@ export const useVideoAnalytics = () => {
             date,
             views: views,
             engagement: engagement,
-            subscribers: 0, // Will be populated from channel data later
+            subscribers: Number(item.subscribers || item.total_subscribers) || 0,
             daily_views: views,
             daily_engagement: engagement,
             videos_published: 1
@@ -267,4 +277,3 @@ export const useVideoAnalytics = () => {
     refreshVideoAnalytics
   };
 };
-
