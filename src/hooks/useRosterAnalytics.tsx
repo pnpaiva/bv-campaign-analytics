@@ -47,13 +47,16 @@ export const useRosterAnalytics = () => {
     try {
       console.log('Fetching roster analytics for creators:', creatorIds);
 
-      // First, recalculate daily metrics to ensure we have the latest data
-      const { error: calcError } = await supabase.rpc('calculate_daily_youtube_metrics');
+      // First ensure we have fresh daily calculations
+      const { error: calcError } = await supabase.rpc('calculate_accurate_daily_metrics');
       if (calcError) {
         console.error('Error calculating daily metrics:', calcError);
       }
 
-      // Get YouTube analytics data for selected creators
+      // Get YouTube analytics data for selected creators with proper date filtering
+      const fromDate = dateRange?.from?.toISOString().split('T')[0] || '2024-01-01';
+      const toDate = dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
+
       const { data: analyticsData, error } = await supabase
         .from('youtube_analytics')
         .select(`
@@ -66,8 +69,8 @@ export const useRosterAnalytics = () => {
         `)
         .eq('creator_roster.user_id', user.id)
         .in('creator_roster_id', creatorIds)
-        .gte('date_recorded', dateRange?.from?.toISOString().split('T')[0] || '2024-01-01')
-        .lte('date_recorded', dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0])
+        .gte('date_recorded', fromDate)
+        .lte('date_recorded', toDate)
         .order('date_recorded', { ascending: true });
 
       if (error) {
@@ -75,25 +78,37 @@ export const useRosterAnalytics = () => {
         throw error;
       }
 
-      console.log('Raw analytics data:', analyticsData);
+      console.log('Raw analytics data from database:', analyticsData);
+
+      if (!analyticsData || analyticsData.length === 0) {
+        console.log('No analytics data found, setting empty arrays');
+        setAnalyticsData([]);
+        setCreatorAnalyticsData([]);
+        return;
+      }
 
       // Process aggregated data by date - sum daily values across creators
       const dateMap = new Map<string, RosterAnalyticsData>();
-      
-      // Process individual creator data
       const creatorDataMap = new Map<string, CreatorAnalyticsData[]>();
       
-      (analyticsData || []).forEach(item => {
+      analyticsData.forEach(item => {
         const date = item.date_recorded || '';
         if (!date) return;
 
         const creatorId = item.creator_roster_id;
         const creatorName = item.creator_roster?.creator_name || 'Unknown';
 
-        // Use daily values for aggregation (not cumulative totals)
+        // Use the calculated daily values from the database
         const dailyViews = Number(item.daily_views) || 0;
         const dailyEngagement = Number(item.daily_likes || 0) + Number(item.daily_comments || 0);
         const dailySubscribers = Number(item.daily_subscribers) || 0;
+
+        console.log(`Processing ${creatorName} for ${date}:`, {
+          dailyViews,
+          dailyEngagement,
+          dailySubscribers,
+          totalSubscribers: item.subscribers
+        });
 
         // Aggregate daily data across all creators for each date
         const existing = dateMap.get(date) || {
@@ -151,8 +166,8 @@ export const useRosterAnalytics = () => {
         flatCreatorData.push(...creatorData);
       });
 
-      console.log('Processed analytics data (using daily values):', processedData);
-      console.log('Creator analytics data (using daily values):', flatCreatorData);
+      console.log('Final processed analytics data:', processedData);
+      console.log('Final creator analytics data:', flatCreatorData);
       
       setAnalyticsData(processedData);
       setCreatorAnalyticsData(flatCreatorData);
@@ -219,8 +234,8 @@ export const useRosterAnalytics = () => {
 
       await Promise.all(refreshPromises);
 
-      // Recalculate daily metrics after refresh
-      const { error: calcError } = await supabase.rpc('calculate_daily_youtube_metrics');
+      // Recalculate daily metrics after refresh with the new function
+      const { error: calcError } = await supabase.rpc('calculate_accurate_daily_metrics');
       if (calcError) {
         console.error('Error recalculating daily metrics:', calcError);
       }
@@ -230,6 +245,7 @@ export const useRosterAnalytics = () => {
         description: "Analytics data refreshed successfully",
       });
 
+      // Wait a bit for the data to settle then refetch
       setTimeout(() => {
         fetchRosterAnalytics(creatorIds);
       }, 2000);

@@ -35,7 +35,7 @@ interface RosterAnalyticsTableProps {
 }
 
 const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creatorData = [], loading }) => {
-  // Calculate summary statistics using daily values
+  // Calculate summary statistics using daily values only
   const calculateSummary = () => {
     if (data.length === 0) return null;
 
@@ -90,13 +90,13 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
 
   const summary = calculateSummary();
 
-  // Prepare chart data using daily values
+  // Prepare chart data using daily values only
   const chartData = data.map(item => ({
     ...item,
     date: format(parseISO(item.date), 'MMM dd'),
-    views: item.daily_views || 0, // Use daily views for charts
-    engagement: item.daily_engagement || 0, // Use daily engagement for charts
-    subscribers: item.subscribers || 0,
+    views: item.daily_views || 0, // Only show daily views
+    engagement: item.daily_engagement || 0, // Only show daily engagement
+    subscribers: item.subscribers || 0, // Daily subscriber changes
     videosPosted: Number(item.videosPosted) || 0
   }));
 
@@ -110,7 +110,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
       color: "hsl(var(--chart-2))",
     },
     subscribers: {
-      label: "Subscriber Changes",
+      label: "Daily Subscriber Changes",
       color: "hsl(var(--chart-3))",
     },
     videosPosted: {
@@ -123,12 +123,12 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Channel Analytics Overview</CardTitle>
+          <CardTitle>Daily Analytics Overview</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-muted-foreground">Loading channel analytics...</p>
+            <p className="mt-2 text-muted-foreground">Loading daily analytics...</p>
           </div>
         </CardContent>
       </Card>
@@ -139,11 +139,11 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Channel Analytics Overview</CardTitle>
+          <CardTitle>Daily Analytics Overview</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No channel analytics data available</p>
+            <p className="text-muted-foreground">No daily analytics data available</p>
             <p className="text-sm text-muted-foreground mt-2">Try refreshing the data to fetch latest YouTube statistics</p>
           </div>
         </CardContent>
@@ -153,14 +153,14 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary Cards - Daily Values Only */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">{summary.currentSubscribers.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Total Subscribers</div>
+                <div className="text-sm text-muted-foreground">Current Total Subscribers</div>
               </div>
             </CardContent>
           </Card>
@@ -169,7 +169,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
             <CardContent className="p-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">{summary.totalViews.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Total Daily Views</div>
+                <div className="text-sm text-muted-foreground">Total Daily Views (Period)</div>
               </div>
             </CardContent>
           </Card>
@@ -177,8 +177,8 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
           <Card>
             <CardContent className="p-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{summary.totalVideos.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground">Total Videos</div>
+                <div className="text-2xl font-bold text-green-600">{summary.last7Days.views.toLocaleString()}</div>
+                <div className="text-sm text-muted-foreground">Daily Views (Last 7 Days)</div>
               </div>
             </CardContent>
           </Card>
@@ -194,24 +194,24 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
         </div>
       )}
 
-      {/* Daily Channel Performance Table */}
+      {/* Daily Performance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Daily Channel Performance</CardTitle>
+          <CardTitle>Daily Performance (Per Day, Not Cumulative)</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead className="text-right">Subscriber Growth</TableHead>
+                <TableHead className="text-right">Daily Subscriber Growth</TableHead>
                 <TableHead className="text-right">Daily Views</TableHead>
                 <TableHead className="text-right">Daily Engagement</TableHead>
                 <TableHead className="text-right">Videos Posted</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.slice(-10).map((item, index) => {
+              {data.slice(-10).reverse().map((item, index) => {
                 return (
                   <TableRow key={item.date}>
                     <TableCell>
@@ -225,13 +225,19 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {(item.subscribers || 0).toLocaleString()}
+                      <Badge variant={item.subscribers > 0 ? "default" : "secondary"}>
+                        {item.subscribers > 0 ? '+' : ''}{(item.subscribers || 0).toLocaleString()}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {(item.daily_views || 0).toLocaleString()}
+                      <span className="text-blue-600 font-semibold">
+                        {(item.daily_views || 0).toLocaleString()}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {(item.daily_engagement || 0).toLocaleString()}
+                      <span className="text-green-600 font-semibold">
+                        {(item.daily_engagement || 0).toLocaleString()}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(item.videosPosted || 0)}
@@ -244,11 +250,11 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
         </CardContent>
       </Card>
 
-      {/* Charts */}
+      {/* Charts - Daily Values Only */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Daily Views Trend</CardTitle>
+            <CardTitle>Daily Views (Per Day)</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">
@@ -282,7 +288,7 @@ const RosterAnalyticsTable: React.FC<RosterAnalyticsTableProps> = ({ data, creat
 
         <Card>
           <CardHeader>
-            <CardTitle>Daily Engagement Trend</CardTitle>
+            <CardTitle>Daily Engagement (Per Day)</CardTitle>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[300px]">

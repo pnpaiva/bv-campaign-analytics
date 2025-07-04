@@ -594,6 +594,19 @@ export type Database = {
           },
         ]
       }
+      daily_youtube_summary: {
+        Row: {
+          creator_name: string | null
+          daily_engagement: number | null
+          daily_subscribers: number | null
+          daily_views: number | null
+          date_recorded: string | null
+          fetched_at: string | null
+          total_subscribers: number | null
+          total_views: number | null
+        }
+        Relationships: []
+      }
       dashboard_analytics: {
         Row: {
           analytics_id: string | null
@@ -659,6 +672,10 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_accurate_daily_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       calculate_channel_engagement: {
         Args: { p_subscribers: number; p_views: number }
         Returns: number
