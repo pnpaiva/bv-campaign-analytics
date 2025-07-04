@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -31,27 +32,71 @@ serve(async (req) => {
       throw new Error('YouTube API key not configured')
     }
 
-    // Extract channel ID from URL
+    // Extract channel ID from URL with improved parsing
     let channelId = ''
+    const url = new URL(channel_url)
+    
     if (channel_url.includes('channel/')) {
       channelId = channel_url.split('channel/')[1].split('/')[0]
     } else if (channel_url.includes('@')) {
       // Handle @username format by getting channel ID first
       const username = channel_url.split('@')[1].split('/')[0]
-      const channelResponse = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${username}&key=${youtubeApiKey}`
+      console.log(`Looking up channel ID for username: ${username}`)
+      
+      // Try the channels API with forHandle parameter (newer method)
+      const handleResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${username}&key=${youtubeApiKey}`
       )
-      const channelData = await channelResponse.json()
-      if (channelData.items && channelData.items.length > 0) {
-        channelId = channelData.items[0].id
+      
+      if (handleResponse.ok) {
+        const handleData = await handleResponse.json()
+        if (handleData.items && handleData.items.length > 0) {
+          channelId = handleData.items[0].id
+        }
+      }
+      
+      // Fallback to search API if forHandle doesn't work
+      if (!channelId) {
+        console.log(`Trying search API for: ${username}`)
+        const searchResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(username)}&maxResults=1&key=${youtubeApiKey}`
+        )
+        
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json()
+          if (searchData.items && searchData.items.length > 0) {
+            channelId = searchData.items[0].snippet.channelId
+          }
+        }
+      }
+    } else if (url.pathname.startsWith('/c/')) {
+      // Handle /c/customname format
+      const customName = url.pathname.split('/c/')[1].split('/')[0]
+      console.log(`Looking up channel ID for custom name: ${customName}`)
+      
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(customName)}&maxResults=1&key=${youtubeApiKey}`
+      )
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        if (searchData.items && searchData.items.length > 0) {
+          channelId = searchData.items[0].snippet.channelId
+        }
       }
     }
 
     if (!channelId) {
-      throw new Error('Could not extract channel ID from URL')
+      console.error('Could not extract channel ID from URL:', channel_url)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Could not extract channel ID from URL. Please ensure the URL is a valid YouTube channel URL.' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log(`Fetching videos for channel: ${channelId}`)
+    console.log(`Successfully found channel ID: ${channelId} for URL: ${channel_url}`)
 
     // Get recent videos from the last 30 days
     const thirtyDaysAgo = new Date()
