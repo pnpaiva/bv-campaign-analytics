@@ -27,6 +27,17 @@ export interface CreatorVideoAnalyticsData {
   videos_published: number;
 }
 
+// Type definition for the RPC response
+interface DailyVideoPerformanceRow {
+  date_recorded: string;
+  creator_roster_id: string;
+  creator_name: string;
+  daily_views: number;
+  daily_engagement: number;
+  videos_published: number;
+  total_subscribers: number;
+}
+
 export const useVideoAnalytics = () => {
   const [analyticsData, setAnalyticsData] = useState<VideoAnalyticsData[]>([]);
   const [creatorAnalyticsData, setCreatorAnalyticsData] = useState<CreatorVideoAnalyticsData[]>([]);
@@ -51,12 +62,13 @@ export const useVideoAnalytics = () => {
       const fromDate = dateRange?.from?.toISOString().split('T')[0] || '2024-01-01';
       const toDate = dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
 
-      // Use the new database function to get daily video performance
-      const { data: videoData, error } = await supabase.rpc('get_daily_video_performance', {
-        p_creator_roster_ids: creatorIds,
-        p_start_date: fromDate,
-        p_end_date: toDate
-      });
+      // Call the database function directly with proper error handling
+      const { data: videoData, error } = await supabase
+        .rpc('get_daily_video_performance', {
+          p_creator_roster_ids: creatorIds,
+          p_start_date: fromDate,
+          p_end_date: toDate
+        });
 
       if (error) {
         console.error('Error fetching video analytics:', error);
@@ -65,7 +77,10 @@ export const useVideoAnalytics = () => {
 
       console.log('Raw video analytics data:', videoData);
 
-      if (!videoData || videoData.length === 0) {
+      // Type cast and validate the response
+      const typedVideoData = videoData as DailyVideoPerformanceRow[] | null;
+
+      if (!typedVideoData || typedVideoData.length === 0) {
         console.log('No video analytics data found');
         setAnalyticsData([]);
         setCreatorAnalyticsData([]);
@@ -76,7 +91,7 @@ export const useVideoAnalytics = () => {
       const dateMap = new Map<string, VideoAnalyticsData>();
       const creatorDataMap = new Map<string, CreatorVideoAnalyticsData[]>();
 
-      videoData.forEach((item: any) => {
+      typedVideoData.forEach((item: DailyVideoPerformanceRow) => {
         const date = item.date_recorded || '';
         if (!date) return;
 
