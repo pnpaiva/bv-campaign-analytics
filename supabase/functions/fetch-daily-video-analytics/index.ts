@@ -15,6 +15,10 @@ serve(async (req) => {
   try {
     const { creator_roster_id, channel_url } = await req.json()
     
+    console.log('=== Fetch Daily Video Analytics Called ===');
+    console.log('Creator Roster ID:', creator_roster_id);
+    console.log('Channel URL:', channel_url);
+    
     if (!creator_roster_id || !channel_url) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
@@ -109,6 +113,8 @@ serve(async (req) => {
     )
 
     if (!searchResponse.ok) {
+      const errorText = await searchResponse.text()
+      console.error('YouTube API search error:', searchResponse.status, errorText)
       throw new Error(`YouTube API search error: ${searchResponse.status}`)
     }
 
@@ -131,6 +137,8 @@ serve(async (req) => {
     )
 
     if (!statisticsResponse.ok) {
+      const errorText = await statisticsResponse.text()
+      console.error('YouTube API statistics error:', statisticsResponse.status, errorText)
       throw new Error(`YouTube API statistics error: ${statisticsResponse.status}`)
     }
 
@@ -187,7 +195,7 @@ serve(async (req) => {
       console.log(`Successfully processed ${videoInserts.length} videos`)
     }
 
-    // Step 5: Update channel subscriber count (keep existing functionality)
+    // Step 5: Update channel subscriber count in youtube_analytics table
     const channelResponse = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${youtubeApiKey}`
     )
@@ -214,6 +222,8 @@ serve(async (req) => {
 
         if (updateError) {
           console.error('Error updating subscriber count:', updateError)
+        } else {
+          console.log(`Updated subscriber count: ${subscribers}`)
         }
       }
     }

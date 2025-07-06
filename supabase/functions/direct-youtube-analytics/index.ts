@@ -25,31 +25,26 @@ serve(async (req) => {
     console.log('=== Direct YouTube Analytics Function Called ===');
     console.log('Campaign ID:', campaign_id);
     console.log('Video URL:', video_url);
-    console.log('API Key available:', !!youtubeApiKey);
-
-    if (!campaign_id) {
-      throw new Error('Campaign ID is required');
-    }
-
-    if (!video_url) {
-      throw new Error('Video URL is required');
-    }
+    console.log('YouTube API Key available:', !!youtubeApiKey);
 
     if (!youtubeApiKey) {
       throw new Error('YouTube API key not configured');
     }
 
+    if (!campaign_id || !video_url) {
+      throw new Error('Missing required parameters: campaign_id and video_url');
+    }
+
     // Extract video ID from URL
     const videoId = extractVideoId(video_url);
     if (!videoId) {
-      console.error('Failed to extract video ID from URL:', video_url);
       throw new Error('Invalid YouTube URL format');
     }
 
     console.log('Extracted video ID:', videoId);
 
     // Check cache first
-    const cacheKey = `youtube_video_${videoId}`;
+    const cacheKey = `youtube_direct_${videoId}`;
     const { data: cachedData } = await supabaseClient
       .from('api_cache')
       .select('*')
@@ -63,27 +58,23 @@ serve(async (req) => {
       console.log('Using cached data for video:', videoId);
       analyticsData = cachedData.response_data;
     } else {
-      console.log('Fetching fresh data for video:', videoId);
+      console.log('Fetching fresh data from YouTube API for video:', videoId);
       
       // Fetch video statistics from YouTube API
       const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoId}&key=${youtubeApiKey}`;
       
-      console.log('Making YouTube API request...');
       const response = await fetch(youtubeUrl);
-      
-      console.log('YouTube API response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('YouTube API error response:', errorText);
-        throw new Error(`YouTube API error: ${response.status} - ${errorText}`);
+        console.error('YouTube API error:', response.status, errorText);
+        throw new Error(`YouTube API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('YouTube API response data:', JSON.stringify(data, null, 2));
+      console.log('YouTube API response received for video:', videoId);
       
       if (!data.items || data.items.length === 0) {
-        console.error('No video found in YouTube response');
         throw new Error('Video not found on YouTube');
       }
 
@@ -96,15 +87,11 @@ serve(async (req) => {
         comments: parseInt(stats.commentCount) || 0,
         engagement: (parseInt(stats.likeCount) || 0) + (parseInt(stats.commentCount) || 0),
         title: video.snippet.title,
-        publishedAt: video.snippet.publishedAt
+        publishedAt: video.snippet.publishedAt,
+        video_id: videoId
       };
 
-      const engagementRate = analyticsData.views > 0 
-        ? (analyticsData.engagement / analyticsData.views) * 100 
-        : 0;
-
-      console.log('Processed analytics data:', analyticsData);
-      console.log('Calculated engagement rate:', engagementRate);
+      console.log('Parsed analytics data:', analyticsData);
 
       // Cache the response for 1 hour
       await supabaseClient
@@ -116,10 +103,17 @@ serve(async (req) => {
           expires_at: new Date(Date.now() + 3600000).toISOString() // 1 hour
         });
 
-      console.log('Cached video analytics data');
+      console.log('Cached analytics data');
     }
 
-    // Store analytics data in analytics_data table
+    // Calculate engagement rate
+    const engagementRate = analyticsData.views > 0 
+      ? (analyticsData.engagement / analyticsData.views) * 100 
+      : 0;
+
+    console.log('Calculated engagement rate:', engagementRate);
+
+    // Store analytics data in analytics_data table (for campaigns)
     const { error: insertError } = await supabaseClient
       .from('analytics_data')
       .upsert({
@@ -130,8 +124,10 @@ serve(async (req) => {
         engagement: analyticsData.engagement,
         likes: analyticsData.likes,
         comments: analyticsData.comments,
-        engagement_rate: analyticsData.views > 0 ? ((analyticsData.engagement / analyticsData.views) * 100) : 0,
+        engagement_rate: parseFloat(engagementRate.toFixed(2)),
         fetched_at: new Date().toISOString()
+      }, {
+        onConflict: 'campaign_id,content_url'
       });
 
     if (insertError) {
@@ -139,7 +135,7 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log('Successfully stored YouTube analytics data');
+    console.log('Stored analytics data in database');
 
     // Update campaign totals
     const { error: updateError } = await supabaseClient.rpc('update_campaign_totals', {
@@ -151,20 +147,24 @@ serve(async (req) => {
       throw updateError;
     }
 
-    console.log('Successfully updated campaign totals');
+    console.log('Updated campaign totals');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: analyticsData
+        data: {
+          ...analyticsData,
+          engagement_rate: engagementRate
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('=== Error in direct YouTube analytics ===');
-    console.error('Error message:', error.message);
-    console.error('Full error:', error);
+    console.error('=== Direct YouTube Analytics Error ===');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+    
     return new Response(
       JSON.stringify({ 
         success: false,
