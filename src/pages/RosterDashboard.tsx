@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
 import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
+import { useToast } from "@/hooks/use-toast";
 import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
@@ -18,6 +19,7 @@ const RosterDashboard = () => {
   const { creators, loading } = useRoster();
   const { user } = useAuth();
   const { analyticsData, creatorAnalyticsData, loading: analyticsLoading, fetchVideoAnalytics, refreshVideoAnalytics } = useVideoAnalytics();
+  const { toast } = useToast();
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [selectedCreatorIds, setSelectedCreatorIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
