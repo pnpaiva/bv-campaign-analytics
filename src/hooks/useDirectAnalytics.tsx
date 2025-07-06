@@ -10,12 +10,9 @@ export const useDirectAnalytics = () => {
   const fetchDirectAnalytics = async (campaignId: string, videoUrl: string) => {
     setLoading(true);
     
-    console.log('=== Starting Direct Analytics Fetch ===');
-    console.log('Campaign ID:', campaignId);
-    console.log('Video URL:', videoUrl);
+    console.log('Starting direct analytics fetch for campaign:', campaignId);
     
     try {
-      // Clean the video URL
       const cleanUrl = videoUrl.trim();
       if (!cleanUrl) {
         throw new Error('Empty video URL provided');
@@ -24,7 +21,7 @@ export const useDirectAnalytics = () => {
       // Validate YouTube URL format
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       if (!youtubeRegex.test(cleanUrl)) {
-        throw new Error('Invalid YouTube URL format. Please provide a valid YouTube URL.');
+        throw new Error('Invalid YouTube URL format');
       }
 
       console.log('Calling direct YouTube analytics function...');
@@ -36,38 +33,36 @@ export const useDirectAnalytics = () => {
         }
       });
 
-      console.log('Direct analytics response:', data);
-      console.log('Direct analytics error:', error);
+      console.log('Function response:', { data, error });
 
       if (error) {
         console.error('Supabase function error:', error);
-        throw new Error(`Function error: ${error.message}`);
+        throw new Error(`Function call failed: ${error.message}`);
       }
 
       if (!data || !data.success) {
-        console.error('Function returned unsuccessful response:', data);
-        throw new Error(data?.error || 'Analytics fetch failed - function returned unsuccessful response');
+        const errorMsg = data?.error || 'Unknown error occurred';
+        console.error('Function returned error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       console.log('Analytics data received:', data.data);
 
       toast({
         title: "Success",
-        description: `YouTube analytics fetched: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
+        description: `Analytics fetched: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
       });
 
       return data;
     } catch (error) {
-      console.error('=== Direct Analytics Error ===');
-      console.error('Error type:', typeof error);
-      console.error('Error message:', error.message);
-      console.error('Full error:', error);
+      console.error('Direct analytics error:', error);
       
       toast({
         title: "Analytics Error",
-        description: `Failed to fetch analytics: ${error.message}`,
+        description: error.message || 'Failed to fetch analytics',
         variant: "destructive",
       });
+      
       throw error;
     } finally {
       setLoading(false);
