@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,16 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings, Youtube, Instagram, ExternalLink } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
+import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
 import { EditCampaignDialog } from "@/components/EditCampaignDialog";
 import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
 import { MasterCampaignManager } from "@/components/MasterCampaignManager";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 
 export default function Campaigns() {
-  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign, triggerCampaignAnalytics } = useCampaigns();
+  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign } = useCampaigns();
   const { loading: analyticsLoading, refreshCampaignAnalytics, refreshAllCampaigns } = useCampaignAnalytics();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -77,14 +78,22 @@ export default function Campaigns() {
 
   const handleRefreshAnalytics = async (campaign, e) => {
     e.stopPropagation();
+    console.log('Refreshing analytics for campaign:', campaign.id);
     await refreshCampaignAnalytics(campaign.id);
   };
 
   const handleRefreshAll = async () => {
+    console.log('Starting refresh all campaigns');
     setRefreshingAll(true);
     const campaignIds = childCampaigns.map(c => c.id);
-    await refreshAllCampaigns(campaignIds);
-    setRefreshingAll(false);
+    console.log('Campaign IDs to refresh:', campaignIds);
+    try {
+      await refreshAllCampaigns(campaignIds);
+    } catch (error) {
+      console.error('Error in handleRefreshAll:', error);
+    } finally {
+      setRefreshingAll(false);
+    }
   };
 
   const handleCardClick = (campaign) => {
@@ -373,7 +382,7 @@ export default function Campaigns() {
             }
           }}
           onRefreshAnalytics={async (campaign) => {
-            await triggerCampaignAnalytics(campaign.id);
+            await refreshCampaignAnalytics(campaign.id);
           }}
         />
       </div>

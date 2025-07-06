@@ -9,58 +9,96 @@ export const useCampaignAnalytics = () => {
 
   const refreshCampaignAnalytics = async (campaignId: string) => {
     setLoading(true);
-    console.log('Refreshing analytics for campaign:', campaignId);
+    
+    console.log('=== Starting campaign analytics refresh ===');
+    console.log('Campaign ID:', campaignId);
     
     try {
-      // Get all video URLs for this campaign
-      const { data: analyticsData, error: fetchError } = await supabase
-        .from('analytics_data')
-        .select('content_url, platform')
-        .eq('campaign_id', campaignId);
+      // Get campaign and its analytics data to find YouTube URLs
+      const { data: campaignData, error: campaignError } = await supabase
+        .from('campaigns')
+        .select(`
+          id,
+          brand_name,
+          analytics_data (
+            content_url,
+            platform
+          )
+        `)
+        .eq('id', campaignId)
+        .single();
 
-      if (fetchError) throw fetchError;
-
-      if (!analyticsData || analyticsData.length === 0) {
-        toast({
-          title: "No Content",
-          description: "No video URLs found for this campaign. Add video URLs first.",
-          variant: "destructive",
-        });
-        return;
+      if (campaignError) {
+        console.error('Error fetching campaign:', campaignError);
+        throw new Error(`Failed to fetch campaign: ${campaignError.message}`);
       }
 
-      // Refresh analytics for each video URL
-      for (const content of analyticsData) {
-        if (content.platform === 'youtube' && content.content_url) {
-          console.log('Refreshing YouTube video:', content.content_url);
-          
-          const { error: refreshError } = await supabase.functions.invoke('fetch-youtube-analytics', {
-            body: { 
-              campaign_id: campaignId,
-              video_url: content.content_url
-            }
-          });
+      console.log('Campaign data:', campaignData);
 
-          if (refreshError) {
-            console.error(`Error refreshing ${content.content_url}:`, refreshError);
-          } else {
-            console.log(`Successfully refreshed ${content.content_url}`);
+      if (!campaignData.analytics_data || campaignData.analytics_data.length === 0) {
+        throw new Error('No analytics data found for this campaign. Please add YouTube URLs first.');
+      }
+
+      let successCount = 0;
+      const errors: string[] = [];
+
+      for (const analytics of campaignData.analytics_data) {
+        if (analytics.platform === 'youtube' && analytics.content_url) {
+          try {
+            console.log(`Refreshing analytics for URL: ${analytics.content_url}`);
+            
+            const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
+              body: { 
+                campaign_id: campaignId,
+                video_url: analytics.content_url
+              }
+            });
+
+            console.log('Function response:', { data, error });
+
+            if (error) {
+              console.error('Edge function error:', error);
+              errors.push(`Function error: ${error.message}`);
+              continue;
+            }
+
+            if (!data || !data.success) {
+              const errorMsg = data?.error || 'Unknown error occurred';
+              console.error('Function returned error:', errorMsg);
+              errors.push(`API error: ${errorMsg}`);
+              continue;
+            }
+
+            console.log('Analytics updated for URL:', analytics.content_url);
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to refresh URL ${analytics.content_url}:`, error);
+            errors.push(`URL ${analytics.content_url}: ${error.message}`);
           }
         }
       }
 
-      toast({
-        title: "Success",
-        description: `Refreshed analytics for ${analyticsData.length} video(s)`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: "Analytics Updated!",
+          description: `Successfully updated ${successCount} video(s)${errors.length > 0 ? ` (${errors.length} failed)` : ''}`,
+        });
+      } else if (errors.length > 0) {
+        throw new Error(`All updates failed: ${errors.join(', ')}`);
+      } else {
+        throw new Error('No YouTube URLs found to refresh');
+      }
 
     } catch (error) {
-      console.error('Error refreshing campaign analytics:', error);
+      console.error('Campaign analytics error:', error);
+      
       toast({
-        title: "Error",
-        description: "Failed to refresh campaign analytics",
+        title: "Analytics Error",
+        description: error.message || 'Failed to refresh campaign analytics',
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -69,22 +107,45 @@ export const useCampaignAnalytics = () => {
   const refreshAllCampaigns = async (campaignIds: string[]) => {
     setLoading(true);
     
+    console.log('=== Starting batch campaign refresh ===');
+    console.log('Campaign IDs:', campaignIds);
+    
     try {
+      let successCount = 0;
+      const errors: string[] = [];
+
       for (const campaignId of campaignIds) {
-        await refreshCampaignAnalytics(campaignId);
+        try {
+          await refreshCampaignAnalytics(campaignId);
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to refresh campaign ${campaignId}:`, error);
+          errors.push(`Campaign ${campaignId}: ${error.message}`);
+        }
       }
+
+      if (successCount > 0) {
+        toast({
+          title: "Batch Update Complete",
+          description: `Successfully updated ${successCount} campaigns${errors.length > 0 ? ` (${errors.length} failed)` : ''}`,
+        });
+      }
+
+      if (errors.length > 0 && successCount === 0) {
+        throw new Error(`All campaign updates failed: ${errors.join(', ')}`);
+      }
+
+      return { successCount, errors };
+    } catch (error) {
+      console.error('Batch campaign refresh error:', error);
       
       toast({
-        title: "Success",
-        description: `Refreshed analytics for ${campaignIds.length} campaigns`,
-      });
-    } catch (error) {
-      console.error('Error refreshing all campaigns:', error);
-      toast({
-        title: "Error",
-        description: "Failed to refresh all campaigns",
+        title: "Batch Update Error",
+        description: error.message || 'Failed to refresh campaigns',
         variant: "destructive",
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -93,6 +154,6 @@ export const useCampaignAnalytics = () => {
   return {
     loading,
     refreshCampaignAnalytics,
-    refreshAllCampaigns
+    refreshAllCampaigns,
   };
 };
