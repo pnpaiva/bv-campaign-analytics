@@ -1,21 +1,20 @@
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { DateRange } from 'react-day-picker';
+import { useRosterAnalytics } from './useRosterAnalytics';
 
-export interface VideoAnalyticsData {
+interface VideoAnalyticsData {
   date: string;
   views: number;
   engagement: number;
   subscribers: number;
-  videosPosted: number;
-  daily_views: number;
-  daily_engagement: number;
+  daily_views?: number;
+  daily_engagement?: number;
+  videosPosted?: number;
 }
 
-export interface CreatorVideoAnalyticsData {
+interface CreatorAnalyticsData {
   creator_id: string;
   creator_name: string;
   date: string;
@@ -24,246 +23,177 @@ export interface CreatorVideoAnalyticsData {
   subscribers: number;
   daily_views: number;
   daily_engagement: number;
-  videos_published: number;
 }
 
 export const useVideoAnalytics = () => {
   const [analyticsData, setAnalyticsData] = useState<VideoAnalyticsData[]>([]);
-  const [creatorAnalyticsData, setCreatorAnalyticsData] = useState<CreatorVideoAnalyticsData[]>([]);
+  const [creatorAnalyticsData, setCreatorAnalyticsData] = useState<CreatorAnalyticsData[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { refreshAllCreators } = useRosterAnalytics();
 
-  const fetchVideoAnalytics = useCallback(async (
+  const fetchVideoAnalytics = async (
     creatorIds: string[],
-    dateRange?: DateRange,
+    dateRange?: { from?: Date; to?: Date },
     platform?: string
   ) => {
-    if (!user || creatorIds.length === 0) {
-      console.log('No user or creators provided:', { user: !!user, creatorIds });
+    console.log('Fetching video analytics for creators:', creatorIds);
+    
+    if (!creatorIds || creatorIds.length === 0) {
+      console.log('No creator IDs provided');
+      setAnalyticsData([]);
+      setCreatorAnalyticsData([]);
       return;
     }
 
     setLoading(true);
+    
     try {
-      console.log('Fetching video analytics for creators:', creatorIds);
-
-      const fromDate = dateRange?.from?.toISOString().split('T')[0] || '2024-01-01';
-      const toDate = dateRange?.to?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
-
-      // Use direct table query to avoid TypeScript issues
-      console.log('Using direct table query for video analytics');
-      const { data: videoData, error } = await supabase
-        .from('video_analytics' as any)
+      console.log('Using youtube_analytics table for video analytics');
+      
+      let query = supabase
+        .from('youtube_analytics')
         .select(`
           *,
           creator_roster!inner(
             id,
-            creator_name,
-            user_id
+            creator_name
           )
         `)
-        .eq('creator_roster.user_id', user.id)
         .in('creator_roster_id', creatorIds)
-        .gte('published_at', fromDate)
-        .lte('published_at', toDate)
-        .order('published_at', { ascending: true });
+        .order('date_recorded', { ascending: true });
+
+      if (dateRange?.from) {
+        query = query.gte('date_recorded', dateRange.from.toISOString().split('T')[0]);
+      }
+      if (dateRange?.to) {
+        query = query.lte('date_recorded', dateRange.to.toISOString().split('T')[0]);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching video analytics:', error);
-        
-        // Show empty state instead of error to prevent UI breaking
-        console.log('Video analytics table may not exist yet, showing empty state');
-        setAnalyticsData([]);
-        setCreatorAnalyticsData([]);
-        return;
-      }
-
-      console.log('Raw video analytics data:', videoData);
-
-      if (!videoData || videoData.length === 0) {
-        console.log('No video analytics data found');
-        setAnalyticsData([]);
-        setCreatorAnalyticsData([]);
-        return;
-      }
-
-      // Process aggregated data by date
-      const dateMap = new Map<string, VideoAnalyticsData>();
-      const creatorDataMap = new Map<string, CreatorVideoAnalyticsData[]>();
-
-      videoData.forEach((item: any) => {
-        const date = item.published_at?.split('T')[0] || item.date_recorded || '';
-        if (!date) return;
-
-        const creatorId = item.creator_roster_id;
-        const creatorName = item.creator_roster?.creator_name || item.creator_name || 'Unknown';
-        const views = Math.max(0, Number(item.views || item.daily_views) || 0);
-        const engagement = Math.max(0, Number(item.likes || 0) + Number(item.comments || 0) || Number(item.daily_engagement) || 0);
-
-        console.log(`Processing ${creatorName} for ${date}:`, {
-          views,
-          engagement,
-          title: item.title
+        toast({
+          title: "Error",
+          description: "Failed to fetch video analytics data",
+          variant: "destructive",
         });
+        return;
+      }
 
-        // Aggregate daily data across all creators for each date
-        const existing = dateMap.get(date) || {
-          date,
-          views: 0,
-          engagement: 0,
-          subscribers: 0,
-          videosPosted: 0,
-          daily_views: 0,
-          daily_engagement: 0
-        };
+      console.log('Raw YouTube analytics data:', data);
 
-        existing.daily_views += views;
-        existing.daily_engagement += engagement;
-        existing.videosPosted += 1;
-        existing.views += views; // For compatibility
-        existing.engagement += engagement; // For compatibility
-        dateMap.set(date, existing);
+      if (!data || data.length === 0) {
+        console.log('No analytics data found');
+        setAnalyticsData([]);
+        setCreatorAnalyticsData([]);
+        return;
+      }
 
-        // Individual creator data
-        if (!creatorDataMap.has(creatorId)) {
-          creatorDataMap.set(creatorId, []);
-        }
-
-        const creatorData = creatorDataMap.get(creatorId)!;
-        const existingCreatorEntry = creatorData.find(d => d.date === date);
-
-        if (existingCreatorEntry) {
-          existingCreatorEntry.views += views;
-          existingCreatorEntry.engagement += engagement;
-          existingCreatorEntry.daily_views += views;
-          existingCreatorEntry.daily_engagement += engagement;
-          existingCreatorEntry.videos_published += 1;
-        } else {
-          creatorData.push({
-            creator_id: creatorId,
-            creator_name: creatorName,
+      // Process data for roster analytics table (aggregated by date)
+      const aggregatedByDate = data.reduce((acc: Record<string, any>, item: any) => {
+        const date = item.date_recorded || new Date().toISOString().split('T')[0];
+        
+        if (!acc[date]) {
+          acc[date] = {
             date,
-            views: views,
-            engagement: engagement,
-            subscribers: Number(item.subscribers || item.total_subscribers) || 0,
-            daily_views: views,
-            daily_engagement: engagement,
-            videos_published: 1
-          });
+            views: 0,
+            engagement: 0,
+            subscribers: 0,
+            daily_views: 0,
+            daily_engagement: 0,
+            videosPosted: 0
+          };
         }
-      });
+        
+        // Use daily values for daily metrics, total values for current totals
+        acc[date].daily_views += item.daily_views || 0;
+        acc[date].daily_engagement += (item.daily_likes || 0) + (item.daily_comments || 0);
+        acc[date].subscribers += item.daily_subscribers || 0; // Daily subscriber changes
+        acc[date].views += item.daily_views || 0; // For roster table, show daily views
+        acc[date].engagement += (item.daily_likes || 0) + (item.daily_comments || 0);
+        
+        return acc;
+      }, {});
 
-      const processedData = Array.from(dateMap.values()).sort((a, b) => 
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-
-      // Flatten creator data
-      const flatCreatorData: CreatorVideoAnalyticsData[] = [];
-      creatorDataMap.forEach(creatorData => {
-        flatCreatorData.push(...creatorData);
-      });
-
-      console.log('Final processed video analytics data:', processedData);
-      console.log('Final creator video analytics data:', flatCreatorData);
+      const processedAnalytics = Object.values(aggregatedByDate) as VideoAnalyticsData[];
       
-      setAnalyticsData(processedData);
-      setCreatorAnalyticsData(flatCreatorData);
+      // Process data for individual creator analytics
+      const creatorData = data.map((item: any) => ({
+        creator_id: item.creator_roster_id,
+        creator_name: item.creator_roster?.creator_name || 'Unknown',
+        date: item.date_recorded || new Date().toISOString().split('T')[0],
+        views: item.views || 0,
+        engagement: (item.likes || 0) + (item.comments || 0),
+        subscribers: item.subscribers || 0,
+        daily_views: item.daily_views || 0,
+        daily_engagement: (item.daily_likes || 0) + (item.daily_comments || 0)
+      }));
 
+      console.log('Processed analytics data:', processedAnalytics);
+      console.log('Processed creator data:', creatorData);
+      
+      setAnalyticsData(processedAnalytics);
+      setCreatorAnalyticsData(creatorData);
+      
     } catch (error) {
       console.error('Error fetching video analytics:', error);
-      
-      // Show empty state instead of error to prevent UI breaking
-      setAnalyticsData([]);
-      setCreatorAnalyticsData([]);
-      
-      toast({
-        title: "Video Analytics",
-        description: "Video analytics feature is being set up. Please try refreshing the data.",
-        variant: "default",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [user, toast]);
-
-  const refreshVideoAnalytics = useCallback(async (creatorIds: string[]) => {
-    if (!user || creatorIds.length === 0) {
-      console.log('No user or creators provided for refresh:', { user: !!user, creatorIds });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('Refreshing video analytics for creators:', creatorIds);
-
-      const { data: creatorsData, error: creatorsError } = await supabase
-        .from('creator_roster')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('id', creatorIds);
-
-      if (creatorsError) throw creatorsError;
-
-      console.log('Creators data for video refresh:', creatorsData);
-
-      const refreshPromises = (creatorsData || []).map(async (creator) => {
-        const channelLinks = creator.channel_links as any || {};
-        const youtubeUrl = channelLinks.youtube;
-
-        if (youtubeUrl) {
-          console.log(`Refreshing video data for ${creator.creator_name}:`, youtubeUrl);
-          
-          try {
-            const { data: videoData, error: videoError } = await supabase.functions.invoke('fetch-daily-video-analytics', {
-              body: { 
-                creator_roster_id: creator.id,
-                channel_url: youtubeUrl
-              }
-            });
-
-            if (videoError) {
-              console.error(`Error refreshing video data for ${creator.creator_name}:`, videoError);
-            } else {
-              console.log(`Successfully refreshed video data for ${creator.creator_name}:`, videoData);
-            }
-          } catch (funcError) {
-            console.error(`Function error for ${creator.creator_name}:`, funcError);
-          }
-        } else {
-          console.log(`No YouTube URL found for ${creator.creator_name}`);
-        }
-      });
-
-      await Promise.all(refreshPromises);
-
-      toast({
-        title: "Success",
-        description: "Video analytics refresh initiated. Data will be available shortly.",
-      });
-
-      // Wait a bit for the data to settle then refetch
-      setTimeout(() => {
-        fetchVideoAnalytics(creatorIds);
-      }, 3000);
-
-    } catch (error) {
-      console.error('Error refreshing video analytics:', error);
       toast({
         title: "Error",
-        description: "Failed to refresh video analytics. Please try again later.",
+        description: "Failed to fetch video analytics data",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [user, toast, fetchVideoAnalytics]);
+  };
+
+  const refreshVideoAnalytics = async (creatorIds: string[]) => {
+    console.log('Refreshing video analytics for creators:', creatorIds);
+    
+    try {
+      // Get creators data to get their YouTube URLs
+      const { data: creators, error: creatorsError } = await supabase
+        .from('creator_roster')
+        .select('*')
+        .in('id', creatorIds);
+
+      if (creatorsError) {
+        console.error('Error fetching creators:', creatorsError);
+        throw creatorsError;
+      }
+
+      console.log('Creators data for video refresh:', creators);
+
+      if (!creators || creators.length === 0) {
+        throw new Error('No creators found');
+      }
+
+      // Use the roster analytics refresh function which calls the YouTube API
+      await refreshAllCreators(creators);
+      
+      toast({
+        title: "Video Analytics Refresh Complete",
+        description: `Successfully refreshed data for ${creators.length} creator${creators.length !== 1 ? 's' : ''}`,
+      });
+
+    } catch (error) {
+      console.error('Error refreshing video analytics:', error);
+      toast({
+        title: "Refresh Error",
+        description: error.message || 'Failed to refresh video analytics',
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
 
   return {
     analyticsData,
     creatorAnalyticsData,
     loading,
     fetchVideoAnalytics,
-    refreshVideoAnalytics
+    refreshVideoAnalytics,
   };
 };

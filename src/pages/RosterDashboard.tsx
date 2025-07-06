@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,9 @@ const RosterDashboard = () => {
         dateRange,
         selectedPlatform === "all" ? undefined : selectedPlatform
       );
+    } else {
+      console.log('No active creators selected, clearing analytics data');
+      // Clear data when no creators are selected
     }
   }, [activeCreators, dateRange, selectedPlatform, fetchVideoAnalytics]);
 
@@ -115,7 +119,14 @@ const RosterDashboard = () => {
 
   // Refresh video analytics with real YouTube data
   const handleRefreshAnalytics = async () => {
-    if (activeCreators.length === 0) return;
+    if (activeCreators.length === 0) {
+      toast({
+        title: "No Creators Selected",
+        description: "Please select creators to refresh their analytics data",
+        variant: "destructive",
+      });
+      return;
+    }
     
     console.log('Refreshing video analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
     
@@ -123,13 +134,14 @@ const RosterDashboard = () => {
     try {
       await refreshVideoAnalytics(activeCreators.map(c => c.id));
       
+      // Wait a moment then refetch the data
       setTimeout(() => {
         fetchVideoAnalytics(
           activeCreators.map(c => c.id),
           dateRange,
           selectedPlatform === "all" ? undefined : selectedPlatform
         );
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error('Error refreshing video analytics:', error);
     } finally {
