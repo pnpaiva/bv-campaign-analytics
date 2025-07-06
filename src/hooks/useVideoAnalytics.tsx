@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRosterAnalytics } from './useRosterAnalytics';
@@ -32,7 +32,7 @@ export const useVideoAnalytics = () => {
   const { toast } = useToast();
   const { refreshAllCreators } = useRosterAnalytics();
 
-  const fetchVideoAnalytics = async (
+  const fetchVideoAnalytics = useCallback(async (
     creatorIds: string[],
     dateRange?: { from?: Date; to?: Date },
     platform?: string
@@ -147,9 +147,9 @@ export const useVideoAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const refreshVideoAnalytics = async (creatorIds: string[]) => {
+  const refreshVideoAnalytics = useCallback(async (creatorIds: string[]) => {
     console.log('Refreshing video analytics for creators:', creatorIds);
     
     try {
@@ -187,7 +187,7 @@ export const useVideoAnalytics = () => {
       });
       throw error;
     }
-  };
+  }, [refreshAllCreators, toast]);
 
   return {
     analyticsData,

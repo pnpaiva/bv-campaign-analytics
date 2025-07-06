@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,6 +26,9 @@ const RosterDashboard = () => {
     to: new Date()
   });
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Use ref to track if initial fetch has been done
+  const initialFetchDone = useRef(false);
 
   // Helper functions
   const getJsonObject = useCallback((jsonObj: any): Record<string, any> => {
@@ -84,18 +86,28 @@ const RosterDashboard = () => {
     return filteredCreators.filter(creator => selectedCreatorIds.includes(creator.id));
   }, [filteredCreators, selectedCreatorIds]);
 
-  // Fetch video analytics data when active creators or filters change
+  // Fetch video analytics data - only when components mount or filters change significantly
   useEffect(() => {
-    if (activeCreators.length > 0) {
-      console.log('Fetching video analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    if (activeCreators.length > 0 && !initialFetchDone.current) {
+      console.log('Initial fetch for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
       fetchVideoAnalytics(
         activeCreators.map(c => c.id),
         dateRange,
         selectedPlatform === "all" ? undefined : selectedPlatform
       );
-    } else {
-      console.log('No active creators selected, clearing analytics data');
-      // Clear data when no creators are selected
+      initialFetchDone.current = true;
+    }
+  }, [activeCreators.length, fetchVideoAnalytics]); // Simplified dependencies
+
+  // Handle manual refresh
+  const handleManualRefresh = useCallback(() => {
+    if (activeCreators.length > 0) {
+      console.log('Manual refresh for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
+      fetchVideoAnalytics(
+        activeCreators.map(c => c.id),
+        dateRange,
+        selectedPlatform === "all" ? undefined : selectedPlatform
+      );
     }
   }, [activeCreators, dateRange, selectedPlatform, fetchVideoAnalytics]);
 
@@ -108,15 +120,31 @@ const RosterDashboard = () => {
         return prev.filter(id => id !== creatorId);
       }
     });
+    // Reset fetch tracker when selection changes
+    initialFetchDone.current = false;
   };
 
   // Handle select all/none
   const handleSelectAll = () => {
     setSelectedCreatorIds(filteredCreators.map(c => c.id));
+    initialFetchDone.current = false;
   };
 
   const handleSelectNone = () => {
     setSelectedCreatorIds([]);
+    initialFetchDone.current = false;
+  };
+
+  // Handle date range change
+  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
+    setDateRange(newDateRange);
+    initialFetchDone.current = false;
+  };
+
+  // Handle platform change
+  const handlePlatformChange = (newPlatform: string) => {
+    setSelectedPlatform(newPlatform);
+    initialFetchDone.current = false;
   };
 
   // Refresh video analytics with real YouTube data
@@ -138,11 +166,7 @@ const RosterDashboard = () => {
       
       // Wait a moment then refetch the data
       setTimeout(() => {
-        fetchVideoAnalytics(
-          activeCreators.map(c => c.id),
-          dateRange,
-          selectedPlatform === "all" ? undefined : selectedPlatform
-        );
+        handleManualRefresh();
       }, 2000);
     } catch (error) {
       console.error('Error refreshing video analytics:', error);
@@ -231,10 +255,10 @@ const RosterDashboard = () => {
             <div className="flex gap-4 flex-wrap">
               <DateRangePicker
                 dateRange={dateRange}
-                onDateRangeChange={setDateRange}
+                onDateRangeChange={handleDateRangeChange}
               />
               
-              <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+              <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Filter by platform" />
                 </SelectTrigger>
@@ -249,6 +273,11 @@ const RosterDashboard = () => {
               <Button onClick={handleRefreshAnalytics} disabled={refreshing || analyticsLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh Video Data
+              </Button>
+              
+              <Button onClick={handleManualRefresh} variant="outline" disabled={analyticsLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${analyticsLoading ? 'animate-spin' : ''}`} />
+                Reload Dashboard
               </Button>
             </div>
           </div>
