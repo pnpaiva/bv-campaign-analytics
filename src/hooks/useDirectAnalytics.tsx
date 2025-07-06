@@ -10,7 +10,9 @@ export const useDirectAnalytics = () => {
   const fetchDirectAnalytics = async (campaignId: string, videoUrl: string) => {
     setLoading(true);
     
-    console.log('Starting direct analytics fetch for campaign:', campaignId);
+    console.log('=== Starting direct analytics fetch ===');
+    console.log('Campaign ID:', campaignId);
+    console.log('Video URL:', videoUrl);
     
     try {
       const cleanUrl = videoUrl.trim();
@@ -24,7 +26,7 @@ export const useDirectAnalytics = () => {
         throw new Error('Invalid YouTube URL format');
       }
 
-      console.log('Calling direct YouTube analytics function...');
+      console.log('Calling direct-youtube-analytics function...');
       
       const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
         body: { 
@@ -36,7 +38,7 @@ export const useDirectAnalytics = () => {
       console.log('Function response:', { data, error });
 
       if (error) {
-        console.error('Supabase function error:', error);
+        console.error('Edge function error:', error);
         throw new Error(`Function call failed: ${error.message}`);
       }
 
@@ -49,8 +51,8 @@ export const useDirectAnalytics = () => {
       console.log('Analytics data received:', data.data);
 
       toast({
-        title: "Success",
-        description: `Analytics updated: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
+        title: "Analytics Updated!",
+        description: `Successfully updated: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
       });
 
       return data;

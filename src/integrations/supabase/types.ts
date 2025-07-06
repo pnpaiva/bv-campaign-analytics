@@ -688,6 +688,26 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      direct_update_campaign: {
+        Args: {
+          p_campaign_id: string
+          p_video_url: string
+          p_views: number
+          p_likes: number
+          p_comments: number
+        }
+        Returns: undefined
+      }
+      direct_update_roster: {
+        Args: {
+          p_creator_roster_id: string
+          p_channel_id: string
+          p_channel_name: string
+          p_subscribers: number
+          p_total_views: number
+        }
+        Returns: undefined
+      }
       get_campaign_trends: {
         Args: {
           start_date?: string

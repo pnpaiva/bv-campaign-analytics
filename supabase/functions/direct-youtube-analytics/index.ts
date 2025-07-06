@@ -14,6 +14,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== Direct YouTube Analytics Function Started ===');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -22,7 +24,7 @@ serve(async (req) => {
     const { campaign_id, video_url } = await req.json();
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
 
-    console.log('Processing campaign:', campaign_id, 'URL:', video_url);
+    console.log('Request data:', { campaign_id, video_url });
 
     if (!youtubeApiKey || !campaign_id || !video_url) {
       throw new Error('Missing required parameters');
@@ -31,22 +33,24 @@ serve(async (req) => {
     // Extract video ID from URL
     const videoIdMatch = video_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
     if (!videoIdMatch) {
-      throw new Error('Invalid YouTube URL');
+      throw new Error('Invalid YouTube URL format');
     }
     const videoId = videoIdMatch[1];
+    console.log('Extracted video ID:', videoId);
 
-    console.log('Fetching data for video:', videoId);
-
-    // Fetch video statistics from YouTube API
+    // Make direct YouTube API call
     const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoId}&key=${youtubeApiKey}`;
+    console.log('Calling YouTube API...');
+    
     const response = await fetch(youtubeUrl);
-
     if (!response.ok) {
-      console.error('YouTube API error:', response.status);
+      const errorText = await response.text();
+      console.error('YouTube API error:', response.status, errorText);
       throw new Error(`YouTube API error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('YouTube API response:', data);
     
     if (!data.items || data.items.length === 0) {
       throw new Error('Video not found');
@@ -58,37 +62,42 @@ serve(async (req) => {
     const views = parseInt(stats.viewCount) || 0;
     const likes = parseInt(stats.likeCount) || 0;
     const comments = parseInt(stats.commentCount) || 0;
-    const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
 
-    console.log('Video stats:', { views, likes, comments, engagementRate });
+    console.log('Parsed stats:', { views, likes, comments });
 
-    // Use the new simplified SQL function to update campaign directly
-    const { error: updateError } = await supabaseClient.rpc('update_campaign_analytics', {
+    // Call our SQL function directly
+    console.log('Calling direct_update_campaign function...');
+    const { error: sqlError } = await supabaseClient.rpc('direct_update_campaign', {
       p_campaign_id: campaign_id,
       p_video_url: video_url,
       p_views: views,
       p_likes: likes,
-      p_comments: comments,
-      p_engagement_rate: parseFloat(engagementRate.toFixed(2))
+      p_comments: comments
     });
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      throw updateError;
+    if (sqlError) {
+      console.error('SQL function error:', sqlError);
+      throw sqlError;
     }
 
-    console.log('Successfully updated campaign analytics');
+    console.log('Campaign updated successfully');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: { views, engagement: likes + comments, likes, comments, engagement_rate: engagementRate }
+        data: { 
+          views, 
+          likes, 
+          comments, 
+          engagement: likes + comments,
+          engagement_rate: views > 0 ? ((likes + comments) / views * 100).toFixed(2) : 0
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in direct-youtube-analytics:', error);
+    console.error('Function error:', error);
     
     return new Response(
       JSON.stringify({ 
