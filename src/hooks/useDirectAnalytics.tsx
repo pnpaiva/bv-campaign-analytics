@@ -50,7 +50,7 @@ export const useDirectAnalytics = () => {
 
       toast({
         title: "Success",
-        description: `Analytics fetched: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
+        description: `Analytics updated: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
       });
 
       return data;

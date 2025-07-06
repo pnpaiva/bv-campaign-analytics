@@ -58,7 +58,7 @@ serve(async (req) => {
 
     console.log(`Found channel ID: ${channelId}`);
 
-    // Get channel statistics first
+    // Get channel statistics
     const channelResponse = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelId}&key=${youtubeApiKey}`
     )
@@ -82,13 +82,13 @@ serve(async (req) => {
 
     console.log('Channel stats:', { subscribers, totalViews, channelName });
 
-    // Use our simplified SQL function to update creator data
-    const { error: updateError } = await supabaseClient.rpc('update_creator_youtube_data', {
+    // Use our simplified SQL function to refresh creator data
+    const { error: updateError } = await supabaseClient.rpc('refresh_creator_roster_data', {
       p_creator_roster_id: creator_roster_id,
-      p_subscribers: subscribers,
-      p_total_views: totalViews,
       p_channel_id: channelId,
-      p_channel_name: channelName
+      p_channel_name: channelName,
+      p_subscribers: subscribers,
+      p_total_views: totalViews
     });
 
     if (updateError) {
@@ -96,52 +96,7 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Get recent videos from the last 30 days
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const publishedAfter = thirtyDaysAgo.toISOString()
-
-    const searchResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&type=video&order=date&maxResults=20&publishedAfter=${publishedAfter}&key=${youtubeApiKey}`
-    )
-
-    if (searchResponse.ok) {
-      const searchData = await searchResponse.json()
-      
-      if (searchData.items && searchData.items.length > 0) {
-        const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',')
-
-        const statisticsResponse = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${videoIds}&key=${youtubeApiKey}`
-        )
-
-        if (statisticsResponse.ok) {
-          const statisticsData = await statisticsResponse.json()
-          
-          for (const video of statisticsData.items || []) {
-            const stats = video.statistics || {}
-            const snippet = video.snippet || {}
-
-            const videoViews = parseInt(stats.viewCount) || 0
-            const videoLikes = parseInt(stats.likeCount) || 0
-            const videoComments = parseInt(stats.commentCount) || 0
-
-            // Use our simplified SQL function to store video data
-            await supabaseClient.rpc('store_video_analytics', {
-              p_creator_roster_id: creator_roster_id,
-              p_video_id: video.id,
-              p_title: snippet.title || '',
-              p_published_at: snippet.publishedAt,
-              p_views: videoViews,
-              p_likes: videoLikes,
-              p_comments: videoComments
-            });
-          }
-
-          console.log(`Processed ${statisticsData.items?.length || 0} videos`);
-        }
-      }
-    }
+    console.log('Successfully updated creator roster data');
 
     return new Response(
       JSON.stringify({

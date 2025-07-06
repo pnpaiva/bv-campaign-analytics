@@ -80,7 +80,7 @@ export const useRosterAnalytics = () => {
         return;
       }
 
-      // Process data by date
+      // Process data by date using the simplified structure
       const dateMap = new Map<string, RosterAnalyticsData>();
       const creatorDataMap = new Map<string, CreatorAnalyticsData[]>();
       

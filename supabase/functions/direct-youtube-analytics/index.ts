@@ -58,48 +58,31 @@ serve(async (req) => {
     const views = parseInt(stats.viewCount) || 0;
     const likes = parseInt(stats.likeCount) || 0;
     const comments = parseInt(stats.commentCount) || 0;
-    const engagement = likes + comments;
-    const engagementRate = views > 0 ? (engagement / views) * 100 : 0;
+    const engagementRate = views > 0 ? ((likes + comments) / views) * 100 : 0;
 
-    console.log('Video stats:', { views, likes, comments, engagement });
+    console.log('Video stats:', { views, likes, comments, engagementRate });
 
-    // Store in analytics_data table
-    const { error: insertError } = await supabaseClient
-      .from('analytics_data')
-      .upsert({
-        campaign_id,
-        platform: 'youtube',
-        content_url: video_url,
-        views,
-        engagement,
-        likes,
-        comments,
-        engagement_rate: parseFloat(engagementRate.toFixed(2)),
-        fetched_at: new Date().toISOString()
-      }, {
-        onConflict: 'campaign_id,content_url'
-      });
-
-    if (insertError) {
-      console.error('Database error:', insertError);
-      throw insertError;
-    }
-
-    // Update campaign totals
-    const { error: updateError } = await supabaseClient.rpc('update_campaign_totals', {
-      campaign_uuid: campaign_id
+    // Use the new simplified SQL function to update campaign directly
+    const { error: updateError } = await supabaseClient.rpc('update_campaign_analytics', {
+      p_campaign_id: campaign_id,
+      p_video_url: video_url,
+      p_views: views,
+      p_likes: likes,
+      p_comments: comments,
+      p_engagement_rate: parseFloat(engagementRate.toFixed(2))
     });
 
     if (updateError) {
-      console.error('Campaign update error:', updateError);
+      console.error('Database update error:', updateError);
+      throw updateError;
     }
 
-    console.log('Successfully stored analytics data');
+    console.log('Successfully updated campaign analytics');
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: { views, engagement, likes, comments, engagement_rate: engagementRate }
+        data: { views, engagement: likes + comments, likes, comments, engagement_rate: engagementRate }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
