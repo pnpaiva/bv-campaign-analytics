@@ -18,18 +18,31 @@ serve(async (req) => {
     const { creator_roster_id, channel_url } = await req.json();
     console.log('Request data:', { creator_roster_id, channel_url });
     
-    if (!creator_roster_id || !channel_url) {
-      throw new Error('Missing required parameters');
-    }
-
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+    
+    console.log('YouTube API Key exists:', !!youtubeApiKey);
+    console.log('Supabase URL exists:', !!Deno.env.get('SUPABASE_URL'));
+    console.log('Service role key exists:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+
     if (!youtubeApiKey) {
-      throw new Error('YouTube API key not configured');
+      console.error('YouTube API key not configured');
+      return new Response(
+        JSON.stringify({ success: false, error: 'YouTube API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!creator_roster_id || !channel_url) {
+      console.error('Missing required parameters');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing creator_roster_id or channel_url' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Extract channel ID from URL
@@ -37,6 +50,7 @@ serve(async (req) => {
     
     if (channel_url.includes('channel/')) {
       channelId = channel_url.split('channel/')[1].split('/')[0];
+      console.log(`Extracted channel ID from URL: ${channelId}`);
     } else if (channel_url.includes('@')) {
       const username = channel_url.split('@')[1].split('/')[0];
       console.log(`Looking up channel ID for username: ${username}`);
@@ -45,16 +59,26 @@ serve(async (req) => {
         `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${username}&key=${youtubeApiKey}`
       );
       
+      console.log('Handle lookup response status:', handleResponse.status);
+      
       if (handleResponse.ok) {
         const handleData = await handleResponse.json();
+        console.log('Handle lookup response:', handleData);
         if (handleData.items && handleData.items.length > 0) {
           channelId = handleData.items[0].id;
         }
+      } else {
+        const errorText = await handleResponse.text();
+        console.error('Handle lookup failed:', errorText);
       }
     }
 
     if (!channelId) {
-      throw new Error('Could not extract channel ID from URL');
+      console.error('Could not extract channel ID from URL:', channel_url);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Could not extract channel ID from URL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Found channel ID: ${channelId}`);
@@ -64,17 +88,26 @@ serve(async (req) => {
       `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelId}&key=${youtubeApiKey}`
     );
 
+    console.log('Channel API response status:', channelResponse.status);
+
     if (!channelResponse.ok) {
       const errorText = await channelResponse.text();
       console.error('YouTube API error:', channelResponse.status, errorText);
-      throw new Error(`YouTube API error: ${channelResponse.status}`);
+      return new Response(
+        JSON.stringify({ success: false, error: `YouTube API error: ${channelResponse.status} - ${errorText}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const channelData = await channelResponse.json();
     console.log('YouTube API response:', channelData);
     
     if (!channelData.items || channelData.items.length === 0) {
-      throw new Error('Channel not found');
+      console.error('Channel not found');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Channel not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const channelInfo = channelData.items[0];
@@ -99,7 +132,10 @@ serve(async (req) => {
 
     if (sqlError) {
       console.error('SQL function error:', sqlError);
-      throw sqlError;
+      return new Response(
+        JSON.stringify({ success: false, error: `Database error: ${sqlError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Roster data updated successfully');
@@ -120,7 +156,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Function error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: `Function error: ${error.message}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

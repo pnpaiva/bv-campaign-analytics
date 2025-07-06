@@ -25,16 +25,34 @@ serve(async (req) => {
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
 
     console.log('Request data:', { campaign_id, video_url });
+    console.log('YouTube API Key exists:', !!youtubeApiKey);
 
-    if (!youtubeApiKey || !campaign_id || !video_url) {
-      throw new Error('Missing required parameters');
+    if (!youtubeApiKey) {
+      console.error('YouTube API key not found');
+      return new Response(
+        JSON.stringify({ success: false, error: 'YouTube API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!campaign_id || !video_url) {
+      console.error('Missing required parameters:', { campaign_id, video_url });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing campaign_id or video_url' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Extract video ID from URL
     const videoIdMatch = video_url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
     if (!videoIdMatch) {
-      throw new Error('Invalid YouTube URL format');
+      console.error('Invalid YouTube URL format:', video_url);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid YouTube URL format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    
     const videoId = videoIdMatch[1];
     console.log('Extracted video ID:', videoId);
 
@@ -43,17 +61,26 @@ serve(async (req) => {
     console.log('Calling YouTube API...');
     
     const response = await fetch(youtubeUrl);
+    console.log('YouTube API response status:', response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('YouTube API error:', response.status, errorText);
-      throw new Error(`YouTube API error: ${response.status}`);
+      return new Response(
+        JSON.stringify({ success: false, error: `YouTube API error: ${response.status} - ${errorText}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
     console.log('YouTube API response:', data);
     
     if (!data.items || data.items.length === 0) {
-      throw new Error('Video not found');
+      console.error('Video not found in YouTube API response');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Video not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const video = data.items[0];
@@ -77,7 +104,10 @@ serve(async (req) => {
 
     if (sqlError) {
       console.error('SQL function error:', sqlError);
-      throw sqlError;
+      return new Response(
+        JSON.stringify({ success: false, error: `Database error: ${sqlError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Campaign updated successfully');
@@ -102,7 +132,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message 
+        error: `Function error: ${error.message}` 
       }),
       { 
         status: 500,
