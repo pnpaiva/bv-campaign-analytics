@@ -689,6 +689,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      calculate_proper_daily_metrics: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       cleanup_expired_cache: {
         Args: Record<PropertyKey, never>
         Returns: undefined

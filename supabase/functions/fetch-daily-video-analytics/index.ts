@@ -173,37 +173,6 @@ serve(async (req) => {
       }
     }
 
-    // Get previous day's data for daily calculations
-    console.log('Getting previous day data for daily calculations...');
-    const { data: previousData, error: prevError } = await supabaseClient
-      .from('youtube_analytics')
-      .select('likes, comments, views, subscribers')
-      .eq('creator_roster_id', creator_roster_id)
-      .lt('date_recorded', new Date().toISOString().split('T')[0])
-      .order('date_recorded', { ascending: false })
-      .limit(1);
-
-    if (prevError) {
-      console.error('Error fetching previous data:', prevError);
-    }
-
-    const prevLikes = previousData?.[0]?.likes || 0;
-    const prevComments = previousData?.[0]?.comments || 0;
-    const prevViews = previousData?.[0]?.views || 0;
-    const prevSubscribers = previousData?.[0]?.subscribers || 0;
-
-    // Calculate daily differences
-    const dailyLikes = Math.max(0, totalLikes - prevLikes);
-    const dailyComments = Math.max(0, totalComments - prevComments);
-    const dailyViews = Math.max(0, totalViews - prevViews);
-    const dailySubscribers = Math.max(0, subscribers - prevSubscribers);
-
-    console.log('Daily calculations:', {
-      dailyLikes, dailyComments, dailyViews, dailySubscribers,
-      totalLikes, totalComments, totalViews, subscribers,
-      prevLikes, prevComments, prevViews, prevSubscribers
-    });
-
     // Call our enhanced SQL function to store video data with engagement
     console.log('Calling enhanced update function...');
     const { error: sqlError } = await supabaseClient.rpc('update_youtube_channel_analytics', {
@@ -216,22 +185,18 @@ serve(async (req) => {
       p_video_count: videoCount
     });
 
-    // Also update with engagement data and proper daily calculations
+    // Also update with engagement data (totals only, daily will be calculated by DB function)
     if (sqlError) {
       console.error('SQL function error:', sqlError);
     } else {
-      console.log('Updating engagement data with proper daily calculations...');
+      console.log('Updating engagement data...');
       
-      // Update the record with engagement data and correct daily metrics
+      // Update the record with engagement data (totals only)
       const { error: updateError } = await supabaseClient
         .from('youtube_analytics')
         .update({
           likes: totalLikes,
           comments: totalComments,
-          daily_likes: dailyLikes,
-          daily_comments: dailyComments,
-          daily_views: dailyViews,
-          daily_subscribers: dailySubscribers,
           engagement_rate: totalViews > 0 ? ((totalLikes + totalComments) / totalViews * 100) : 0
         })
         .eq('creator_roster_id', creator_roster_id)
@@ -240,7 +205,17 @@ serve(async (req) => {
       if (updateError) {
         console.error('Engagement update error:', updateError);
       } else {
-        console.log('Engagement data updated successfully with daily metrics');
+        console.log('Engagement data updated successfully');
+        
+        // Run daily metrics calculation to fix daily values
+        console.log('Recalculating daily metrics...');
+        const { error: calcError } = await supabaseClient.rpc('calculate_proper_daily_metrics');
+        
+        if (calcError) {
+          console.error('Daily metrics calculation error:', calcError);
+        } else {
+          console.log('Daily metrics recalculated successfully');
+        }
       }
     }
 
