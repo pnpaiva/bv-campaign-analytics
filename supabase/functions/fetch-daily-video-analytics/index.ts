@@ -85,7 +85,7 @@ serve(async (req) => {
 
     // Get channel statistics from YouTube API
     const channelResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelId}&key=${youtubeApiKey}`
+      `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet,contentDetails&id=${channelId}&key=${youtubeApiKey}`
     );
 
     console.log('Channel API response status:', channelResponse.status);
@@ -113,22 +113,103 @@ serve(async (req) => {
     const channelInfo = channelData.items[0];
     const channelStats = channelInfo.statistics;
     const channelSnippet = channelInfo.snippet;
+    const contentDetails = channelInfo.contentDetails;
 
     const subscribers = parseInt(channelStats.subscriberCount) || 0;
     const totalViews = parseInt(channelStats.viewCount) || 0;
     const channelName = channelSnippet.title || '';
+    const uploadsPlaylistId = contentDetails.relatedPlaylists.uploads;
 
-    console.log('Channel stats:', { subscribers, totalViews, channelName });
+    console.log('Channel stats:', { subscribers, totalViews, channelName, uploadsPlaylistId });
 
-    // Call our SQL function directly
-    console.log('Calling direct_update_roster function...');
-    const { error: sqlError } = await supabaseClient.rpc('direct_update_roster', {
+    // Get recent videos from uploads playlist
+    let totalLikes = 0;
+    let totalComments = 0;
+    let videoCount = 0;
+
+    if (uploadsPlaylistId) {
+      console.log('Fetching recent videos from uploads playlist...');
+      
+      // Get recent videos (last 10)
+      const playlistResponse = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=10&key=${youtubeApiKey}`
+      );
+
+      if (playlistResponse.ok) {
+        const playlistData = await playlistResponse.json();
+        console.log('Playlist items count:', playlistData.items?.length || 0);
+
+        if (playlistData.items && playlistData.items.length > 0) {
+          // Get video IDs
+          const videoIds = playlistData.items.map(item => item.snippet.resourceId.videoId).join(',');
+          
+          // Get video statistics
+          const videoStatsResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds}&key=${youtubeApiKey}`
+          );
+
+          if (videoStatsResponse.ok) {
+            const videoStatsData = await videoStatsResponse.json();
+            console.log('Video statistics count:', videoStatsData.items?.length || 0);
+
+            if (videoStatsData.items) {
+              videoCount = videoStatsData.items.length;
+              
+              // Sum up likes and comments from recent videos
+              for (const video of videoStatsData.items) {
+                const stats = video.statistics;
+                totalLikes += parseInt(stats.likeCount) || 0;
+                totalComments += parseInt(stats.commentCount) || 0;
+              }
+              
+              console.log('Aggregated video stats:', { videoCount, totalLikes, totalComments });
+            }
+          } else {
+            console.error('Failed to fetch video statistics:', await videoStatsResponse.text());
+          }
+        }
+      } else {
+        console.error('Failed to fetch playlist items:', await playlistResponse.text());
+      }
+    }
+
+    // Call our enhanced SQL function to store video data with engagement
+    console.log('Calling enhanced update function...');
+    const { error: sqlError } = await supabaseClient.rpc('update_youtube_channel_analytics', {
       p_creator_roster_id: creator_roster_id,
+      p_channel_handle: channelSnippet.customUrl || null,
       p_channel_id: channelId,
       p_channel_name: channelName,
       p_subscribers: subscribers,
-      p_total_views: totalViews
+      p_total_views: totalViews,
+      p_video_count: videoCount
     });
+
+    // Also update with engagement data
+    if (sqlError) {
+      console.error('SQL function error:', sqlError);
+    } else {
+      console.log('Updating engagement data...');
+      
+      // Update the record with engagement data
+      const { error: updateError } = await supabaseClient
+        .from('youtube_analytics')
+        .update({
+          likes: totalLikes,
+          comments: totalComments,
+          daily_likes: totalLikes, // For now, treating as daily until we have historical comparison
+          daily_comments: totalComments,
+          engagement_rate: totalViews > 0 ? ((totalLikes + totalComments) / totalViews * 100) : 0
+        })
+        .eq('creator_roster_id', creator_roster_id)
+        .eq('date_recorded', new Date().toISOString().split('T')[0]);
+
+      if (updateError) {
+        console.error('Engagement update error:', updateError);
+      } else {
+        console.log('Engagement data updated successfully');
+      }
+    }
 
     if (sqlError) {
       console.error('SQL function error:', sqlError);
@@ -147,7 +228,11 @@ serve(async (req) => {
           channel_id: channelId,
           channel_name: channelName,
           subscribers,
-          total_views: totalViews
+          total_views: totalViews,
+          video_count: videoCount,
+          total_likes: totalLikes,
+          total_comments: totalComments,
+          engagement_rate: totalViews > 0 ? ((totalLikes + totalComments) / totalViews * 100) : 0
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
