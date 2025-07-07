@@ -63,11 +63,17 @@ export const useVideoAnalytics = () => {
         .in('creator_roster_id', creatorIds)
         .order('date_recorded', { ascending: true });
 
+      // Don't show data from today or yesterday (max 2 days before today)
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() - 2);
+      query = query.lte('date_recorded', maxDate.toISOString().split('T')[0]);
+
       if (dateRange?.from) {
         query = query.gte('date_recorded', dateRange.from.toISOString().split('T')[0]);
       }
       if (dateRange?.to) {
-        query = query.lte('date_recorded', dateRange.to.toISOString().split('T')[0]);
+        const restrictedTo = new Date(Math.min(dateRange.to.getTime(), maxDate.getTime()));
+        query = query.lte('date_recorded', restrictedTo.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query;
