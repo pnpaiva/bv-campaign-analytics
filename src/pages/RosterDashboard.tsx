@@ -395,11 +395,16 @@ const RosterDashboard = () => {
                   <CardTitle>Daily Video Performance Trends</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AnalyticsChart 
-                    data={analyticsData} 
-                    selectedPlatform={selectedPlatform}
-                    loading={analyticsLoading}
-                  />
+            <AnalyticsChart 
+              data={analyticsData.map(item => ({
+                date: item.date,
+                views: item.daily_views || 0,
+                engagement: item.daily_engagement || 0,
+                subscribers: item.subscribers || 0
+              }))} 
+              selectedPlatform={selectedPlatform}
+              loading={analyticsLoading}
+            />
                 </CardContent>
               </Card>
             </div>
