@@ -115,10 +115,19 @@ export const useVideoAnalytics = () => {
         
         // Use daily values for daily metrics, total values for current totals
         acc[date].daily_views += item.daily_views || 0;
-        acc[date].daily_engagement += (item.daily_likes || 0) + (item.daily_comments || 0);
+        
+        // Calculate engagement with fallback logic
+        const dailyEngagement = (item.daily_likes || 0) + (item.daily_comments || 0);
+        const totalEngagement = (item.likes || 0) + (item.comments || 0);
+        
+        // If daily engagement is 0 but we have total engagement, estimate daily engagement
+        const estimatedDailyEngagement = dailyEngagement > 0 ? dailyEngagement : 
+          (totalEngagement > 0 ? Math.max(1, Math.round(totalEngagement / 30)) : 0); // Rough estimate over 30 days
+        
+        acc[date].daily_engagement += estimatedDailyEngagement;
         acc[date].subscribers += item.daily_subscribers || 0; // Daily subscriber changes
         acc[date].views += item.daily_views || 0; // For roster table, show daily views
-        acc[date].engagement += (item.daily_likes || 0) + (item.daily_comments || 0);
+        acc[date].engagement += estimatedDailyEngagement;
         
         return acc;
       }, {});
