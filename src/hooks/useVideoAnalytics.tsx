@@ -69,11 +69,8 @@ export const useVideoAnalytics = () => {
         query = query.gte('fetched_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
       }
 
-      // During force refresh, allow today's data; otherwise exclude today's data
+      // Always include today's data to show fresh updates
       const maxDate = new Date();
-      if (!forceRefresh) {
-        maxDate.setDate(maxDate.getDate() - 1);
-      }
       query = query.lte('date_recorded', maxDate.toISOString().split('T')[0]);
 
       if (dateRange?.from) {
@@ -121,21 +118,18 @@ export const useVideoAnalytics = () => {
           };
         }
         
-        // Use daily values for daily metrics, total values for current totals
+        // Sum up daily metrics across all creators for each date
         acc[date].daily_views += item.daily_views || 0;
+        acc[date].daily_subscribers += item.daily_subscribers || 0;
         
-        // Calculate engagement with fallback logic
+        // Use actual daily engagement numbers from the data
         const dailyEngagement = (item.daily_likes || 0) + (item.daily_comments || 0);
-        const totalEngagement = (item.likes || 0) + (item.comments || 0);
+        acc[date].daily_engagement += dailyEngagement;
         
-        // If daily engagement is 0 but we have total engagement, estimate daily engagement
-        const estimatedDailyEngagement = dailyEngagement > 0 ? dailyEngagement : 
-          (totalEngagement > 0 ? Math.max(1, Math.round(totalEngagement / 30)) : 0); // Rough estimate over 30 days
-        
-        acc[date].daily_engagement += estimatedDailyEngagement;
-        acc[date].subscribers += item.daily_subscribers || 0; // Daily subscriber changes
-        acc[date].views += item.daily_views || 0; // For roster table, show daily views
-        acc[date].engagement += estimatedDailyEngagement;
+        // For the table display, use daily values
+        acc[date].views = acc[date].daily_views; // Show daily views in the views column
+        acc[date].engagement = acc[date].daily_engagement; // Show daily engagement 
+        acc[date].subscribers = acc[date].daily_subscribers; // Show daily subscriber changes
         
         return acc;
       }, {});
