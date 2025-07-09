@@ -69,9 +69,11 @@ export const useVideoAnalytics = () => {
         query = query.gte('fetched_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
       }
 
-      // Don't show data from today or yesterday (max 2 days before today)
+      // During force refresh, allow today's data; otherwise exclude today's data
       const maxDate = new Date();
-      maxDate.setDate(maxDate.getDate() - 2);
+      if (!forceRefresh) {
+        maxDate.setDate(maxDate.getDate() - 1);
+      }
       query = query.lte('date_recorded', maxDate.toISOString().split('T')[0]);
 
       if (dateRange?.from) {
