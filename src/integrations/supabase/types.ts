@@ -433,6 +433,27 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          error_message: string
+          id: number
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          error_message: string
+          id?: number
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          error_message?: string
+          id?: number
+        }
+        Relationships: []
+      }
       roster_analytics: {
         Row: {
           created_at: string

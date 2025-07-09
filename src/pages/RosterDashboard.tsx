@@ -164,10 +164,18 @@ const RosterDashboard = () => {
     try {
       await refreshVideoAnalytics(activeCreators.map(c => c.id));
       
-      // Wait a moment then refetch the data
+      // Reset the fetch tracker to force a fresh fetch
+      initialFetchDone.current = false;
+      
+      // Wait a moment then refetch the data with a longer delay to ensure DB is updated
       setTimeout(() => {
-        handleManualRefresh();
-      }, 2000);
+        console.log('Refetching analytics data after refresh...');
+        fetchVideoAnalytics(
+          activeCreators.map(c => c.id),
+          dateRange,
+          selectedPlatform === "all" ? undefined : selectedPlatform
+        );
+      }, 3000); // Increased delay to 3 seconds
     } catch (error) {
       console.error('Error refreshing video analytics:', error);
     } finally {
