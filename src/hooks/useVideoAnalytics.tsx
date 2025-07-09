@@ -35,7 +35,8 @@ export const useVideoAnalytics = () => {
   const fetchVideoAnalytics = useCallback(async (
     creatorIds: string[],
     dateRange?: { from?: Date; to?: Date },
-    platform?: string
+    platform?: string,
+    forceRefresh: boolean = false
   ) => {
     console.log('Fetching video analytics for creators:', creatorIds);
     
@@ -62,6 +63,11 @@ export const useVideoAnalytics = () => {
         `)
         .in('creator_roster_id', creatorIds)
         .order('date_recorded', { ascending: true });
+
+      // Add timestamp to force cache invalidation when refreshing
+      if (forceRefresh) {
+        query = query.gte('fetched_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      }
 
       // Don't show data from today or yesterday (max 2 days before today)
       const maxDate = new Date();
@@ -149,8 +155,15 @@ export const useVideoAnalytics = () => {
       console.log('Processed analytics data:', processedAnalytics);
       console.log('Processed creator data:', creatorData);
       
-      setAnalyticsData(processedAnalytics);
-      setCreatorAnalyticsData(creatorData);
+      // Clear existing data first to ensure fresh state
+      setAnalyticsData([]);
+      setCreatorAnalyticsData([]);
+      
+      // Set new data with a small delay to ensure state update
+      setTimeout(() => {
+        setAnalyticsData(processedAnalytics);
+        setCreatorAnalyticsData(creatorData);
+      }, 100);
       
     } catch (error) {
       console.error('Error fetching video analytics:', error);

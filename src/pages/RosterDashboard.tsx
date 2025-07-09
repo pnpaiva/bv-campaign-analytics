@@ -173,13 +173,17 @@ const RosterDashboard = () => {
         fetchVideoAnalytics(
           activeCreators.map(c => c.id),
           dateRange,
-          selectedPlatform === "all" ? undefined : selectedPlatform
+          selectedPlatform === "all" ? undefined : selectedPlatform,
+          true // Force refresh to bypass cache
         );
-      }, 3000); // Increased delay to 3 seconds
+      }, 5000); // Increased delay to 5 seconds
     } catch (error) {
       console.error('Error refreshing video analytics:', error);
     } finally {
-      setRefreshing(false);
+      // Don't set refreshing to false immediately, wait for the data fetch to complete
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 6000); // Keep refreshing state until after data fetch
     }
   };
 
