@@ -50,9 +50,24 @@ export const useVideoAnalytics = () => {
     setLoading(true);
     
     try {
-      console.log('Using youtube_analytics table for video analytics');
+      // Use the new SQL function for aggregated daily analytics
+      const startDate = dateRange?.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const endDate = dateRange?.to || new Date();
       
-      let query = supabase
+      const { data: aggregatedData, error: aggError } = await supabase
+        .rpc('get_roster_daily_analytics', {
+          p_creator_ids: creatorIds,
+          p_start_date: startDate.toISOString().split('T')[0],
+          p_end_date: endDate.toISOString().split('T')[0]
+        });
+
+      if (aggError) {
+        console.error('Error fetching aggregated analytics:', aggError);
+        throw aggError;
+      }
+
+      // Also get individual creator data for the table
+      let individualQuery = supabase
         .from('youtube_analytics')
         .select(`
           *,
@@ -62,91 +77,59 @@ export const useVideoAnalytics = () => {
           )
         `)
         .in('creator_roster_id', creatorIds)
-        .order('date_recorded', { ascending: true });
+        .order('date_recorded', { ascending: false });
 
-      // Add timestamp to force cache invalidation when refreshing
-      if (forceRefresh) {
-        query = query.gte('fetched_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-      }
-
-      // Always include today's data to show fresh updates
-      const maxDate = new Date();
-      query = query.lte('date_recorded', maxDate.toISOString().split('T')[0]);
-
+      // Apply date filters
       if (dateRange?.from) {
-        query = query.gte('date_recorded', dateRange.from.toISOString().split('T')[0]);
+        individualQuery = individualQuery.gte('date_recorded', dateRange.from.toISOString().split('T')[0]);
+      } else {
+        // Default to last 30 days
+        individualQuery = individualQuery.gte('date_recorded', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
       }
+      
       if (dateRange?.to) {
-        const restrictedTo = new Date(Math.min(dateRange.to.getTime(), maxDate.getTime()));
-        query = query.lte('date_recorded', restrictedTo.toISOString().split('T')[0]);
+        individualQuery = individualQuery.lte('date_recorded', dateRange.to.toISOString().split('T')[0]);
+      } else {
+        individualQuery = individualQuery.lte('date_recorded', new Date().toISOString().split('T')[0]);
       }
 
-      const { data, error } = await query;
+      const { data: individualData, error: indError } = await individualQuery;
 
-      if (error) {
-        console.error('Error fetching video analytics:', error);
+      if (indError) {
+        console.error('Error fetching individual analytics:', indError);
         toast({
           title: "Error",
-          description: "Failed to fetch video analytics data",
+          description: "Failed to fetch individual analytics data",
           variant: "destructive",
         });
         return;
       }
 
-      console.log('Raw YouTube analytics data:', data);
+      console.log('Aggregated analytics data:', aggregatedData);
+      console.log('Individual analytics data:', individualData);
 
-      if (!data || data.length === 0) {
-        console.log('No analytics data found');
-        setAnalyticsData([]);
-        setCreatorAnalyticsData([]);
-        return;
-      }
-
-      // Process data for roster analytics table (aggregated by date)
-      const aggregatedByDate = data.reduce((acc: Record<string, any>, item: any) => {
-        const date = item.date_recorded || new Date().toISOString().split('T')[0];
-        
-        if (!acc[date]) {
-          acc[date] = {
-            date,
-            views: 0,
-            engagement: 0,
-            subscribers: 0,
-            daily_views: 0,
-            daily_engagement: 0,
-            videosPosted: 0
-          };
-        }
-        
-        // Sum up daily metrics across all creators for each date
-        acc[date].daily_views += item.daily_views || 0;
-        acc[date].daily_subscribers += item.daily_subscribers || 0;
-        
-        // Use actual daily engagement numbers from the data
-        const dailyEngagement = (item.daily_likes || 0) + (item.daily_comments || 0);
-        acc[date].daily_engagement += dailyEngagement;
-        
-        // For the table display, use daily values
-        acc[date].views = acc[date].daily_views; // Show daily views in the views column
-        acc[date].engagement = acc[date].daily_engagement; // Show daily engagement 
-        acc[date].subscribers = acc[date].daily_subscribers; // Show daily subscriber changes
-        
-        return acc;
-      }, {});
-
-      const processedAnalytics = Object.values(aggregatedByDate) as VideoAnalyticsData[];
+      // Process aggregated data for the dashboard overview
+      const processedAnalytics = aggregatedData?.map((item: any) => ({
+        date: item.date_recorded,
+        views: Number(item.total_daily_views) || 0,
+        engagement: Number(item.total_daily_engagement) || 0,
+        subscribers: Number(item.total_daily_subscribers) || 0,
+        daily_views: Number(item.total_daily_views) || 0,
+        daily_engagement: Number(item.total_daily_engagement) || 0,
+        videosPosted: 0 // We don't track this yet
+      })) || [];
       
-      // Process data for individual creator analytics
-      const creatorData = data.map((item: any) => ({
+      // Process individual creator data for detailed analytics
+      const creatorData = individualData?.map((item: any) => ({
         creator_id: item.creator_roster_id,
         creator_name: item.creator_roster?.creator_name || 'Unknown',
         date: item.date_recorded || new Date().toISOString().split('T')[0],
-        views: item.views || 0,
-        engagement: (item.likes || 0) + (item.comments || 0),
-        subscribers: item.subscribers || 0,
-        daily_views: item.daily_views || 0,
-        daily_engagement: (item.daily_likes || 0) + (item.daily_comments || 0)
-      }));
+        views: Number(item.views) || 0,
+        engagement: (Number(item.likes) || 0) + (Number(item.comments) || 0),
+        subscribers: Number(item.subscribers) || 0,
+        daily_views: Number(item.daily_views) || 0,
+        daily_engagement: (Number(item.daily_likes) || 0) + (Number(item.daily_comments) || 0)
+      })) || [];
 
       console.log('Processed analytics data:', processedAnalytics);
       console.log('Processed creator data:', creatorData);

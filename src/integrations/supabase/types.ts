@@ -782,6 +782,20 @@ export type Database = {
           monthly_trends: Json
         }[]
       }
+      get_roster_daily_analytics: {
+        Args: {
+          p_creator_ids?: string[]
+          p_start_date?: string
+          p_end_date?: string
+        }
+        Returns: {
+          date_recorded: string
+          total_daily_views: number
+          total_daily_subscribers: number
+          total_daily_engagement: number
+          creator_count: number
+        }[]
+      }
       get_top_content: {
         Args: { limit_count?: number; order_by?: string }
         Returns: {
