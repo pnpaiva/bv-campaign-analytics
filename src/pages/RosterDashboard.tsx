@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,8 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useRoster } from "@/hooks/useRoster";
 import { useAuth } from "@/hooks/useAuth";
 import { useVideoAnalytics } from "@/hooks/useVideoAnalytics";
-import { useToast } from "@/hooks/use-toast";
-import { Users, Youtube, Instagram, TrendingUp, Eye, Heart, RefreshCw } from "lucide-react";
+import { useCreatorFilter } from "@/hooks/useCreatorFilter";
+import { useRosterMetrics, useCreatorMetrics } from "@/hooks/useRosterMetrics";
+import { useAnalyticsRefresh } from "@/hooks/useAnalyticsRefresh";
+import { Users, Youtube, Instagram, TrendingUp, Eye, RefreshCw } from "lucide-react";
 import AnalyticsChart from "@/components/AnalyticsChart";
 import CreatorMetrics from "@/components/CreatorMetrics";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -18,222 +20,34 @@ const RosterDashboard = () => {
   const { creators, loading } = useRoster();
   const { user } = useAuth();
   const { analyticsData, creatorAnalyticsData, loading: analyticsLoading, fetchVideoAnalytics, refreshVideoAnalytics } = useVideoAnalytics();
-  const { toast } = useToast();
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
-  const [selectedCreatorIds, setSelectedCreatorIds] = useState<string[]>([]);
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
     to: new Date()
   });
-  const [refreshing, setRefreshing] = useState(false);
-  
-  // Use ref to track if initial fetch has been done
-  const initialFetchDone = useRef(false);
 
-  // Helper functions
-  const getJsonObject = useCallback((jsonObj: any): Record<string, any> => {
-    if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
-      return jsonObj;
-    }
-    return {};
-  }, []);
+  // Use custom hooks for cleaner code
+  const creatorFilter = useCreatorFilter(creators);
+  const aggregatedAnalytics = useRosterMetrics(analyticsData, creatorAnalyticsData);
+  const getCreatorMetrics = useCreatorMetrics(creatorAnalyticsData);
+  const analyticsRefresh = useAnalyticsRefresh(fetchVideoAnalytics, refreshVideoAnalytics);
 
-  const getStringValue = useCallback((jsonObj: any, key: string): string => {
-    if (jsonObj && typeof jsonObj === 'object' && !Array.isArray(jsonObj)) {
-      return jsonObj[key] || '';
-    }
-    return '';
-  }, []);
-
-  const hasValue = useCallback((jsonObj: any, key: string): boolean => {
-    return Boolean(getStringValue(jsonObj, key));
-  }, [getStringValue]);
-
-  // Initialize selected creators when creators load
+  // Initialize creator selection
   useEffect(() => {
-    if (creators.length > 0 && selectedCreatorIds.length === 0) {
-      setSelectedCreatorIds(creators.map(c => c.id));
-    }
-  }, [creators, selectedCreatorIds.length]);
+    creatorFilter.initializeSelection();
+  }, [creatorFilter.initializeSelection]);
 
-  // Filter creators by platform
-  const filteredCreators = useMemo(() => {
-    let filtered = creators;
-    
-    if (selectedPlatform !== "all") {
-      filtered = filtered.filter(creator => {
-        const channelLinks = getJsonObject(creator.channel_links);
-        const socialHandles = getJsonObject(creator.social_media_handles);
-        
-        switch (selectedPlatform) {
-          case "youtube":
-            return hasValue(channelLinks, 'youtube');
-          case "instagram":
-            return hasValue(socialHandles, 'instagram');
-          case "tiktok":
-            return hasValue(socialHandles, 'tiktok');
-          default:
-            return true;
-        }
-      });
-    }
-    
-    return filtered;
-  }, [creators, selectedPlatform, getJsonObject, hasValue]);
-
-  // Get currently selected creators (intersection of filtered and selected)
-  const activeCreators = useMemo(() => {
-    return filteredCreators.filter(creator => selectedCreatorIds.includes(creator.id));
-  }, [filteredCreators, selectedCreatorIds]);
-
-  // Fetch video analytics data - only when components mount or filters change significantly
+  // Fetch analytics when active creators change
   useEffect(() => {
-    if (activeCreators.length > 0 && !initialFetchDone.current) {
-      console.log('Initial fetch for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
+    if (creatorFilter.activeCreators.length > 0) {
+      console.log('Fetching analytics for active creators:', creatorFilter.activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
       fetchVideoAnalytics(
-        activeCreators.map(c => c.id),
+        creatorFilter.activeCreators.map(c => c.id),
         dateRange,
-        selectedPlatform === "all" ? undefined : selectedPlatform
-      );
-      initialFetchDone.current = true;
-    }
-  }, [activeCreators.length, fetchVideoAnalytics]); // Simplified dependencies
-
-  // Handle manual refresh
-  const handleManualRefresh = useCallback(() => {
-    if (activeCreators.length > 0) {
-      console.log('Manual refresh for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
-      fetchVideoAnalytics(
-        activeCreators.map(c => c.id),
-        dateRange,
-        selectedPlatform === "all" ? undefined : selectedPlatform
+        creatorFilter.selectedPlatform === "all" ? undefined : creatorFilter.selectedPlatform
       );
     }
-  }, [activeCreators, dateRange, selectedPlatform, fetchVideoAnalytics]);
-
-  // Handle creator selection toggle
-  const handleCreatorToggle = (creatorId: string, checked: boolean) => {
-    setSelectedCreatorIds(prev => {
-      if (checked) {
-        return [...prev, creatorId];
-      } else {
-        return prev.filter(id => id !== creatorId);
-      }
-    });
-    // Reset fetch tracker when selection changes
-    initialFetchDone.current = false;
-  };
-
-  // Handle select all/none
-  const handleSelectAll = () => {
-    setSelectedCreatorIds(filteredCreators.map(c => c.id));
-    initialFetchDone.current = false;
-  };
-
-  const handleSelectNone = () => {
-    setSelectedCreatorIds([]);
-    initialFetchDone.current = false;
-  };
-
-  // Handle date range change
-  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
-    setDateRange(newDateRange);
-    initialFetchDone.current = false;
-  };
-
-  // Handle platform change
-  const handlePlatformChange = (newPlatform: string) => {
-    setSelectedPlatform(newPlatform);
-    initialFetchDone.current = false;
-  };
-
-  // Refresh video analytics with real YouTube data
-  const handleRefreshAnalytics = async () => {
-    if (activeCreators.length === 0) {
-      toast({
-        title: "No Creators Selected",
-        description: "Please select creators to refresh their analytics data",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    console.log('Refreshing video analytics for active creators:', activeCreators.map(c => ({ id: c.id, name: c.creator_name })));
-    
-    setRefreshing(true);
-    try {
-      await refreshVideoAnalytics(activeCreators.map(c => c.id));
-      
-      // Reset the fetch tracker to force a fresh fetch
-      initialFetchDone.current = false;
-      
-      // Wait a moment then refetch the data with a longer delay to ensure DB is updated
-      setTimeout(() => {
-        console.log('Refetching analytics data after refresh...');
-        fetchVideoAnalytics(
-          activeCreators.map(c => c.id),
-          dateRange,
-          selectedPlatform === "all" ? undefined : selectedPlatform,
-          true // Force refresh to bypass cache
-        );
-      }, 5000); // Increased delay to 5 seconds
-    } catch (error) {
-      console.error('Error refreshing video analytics:', error);
-    } finally {
-      // Don't set refreshing to false immediately, wait for the data fetch to complete
-      setTimeout(() => {
-        setRefreshing(false);
-      }, 6000); // Keep refreshing state until after data fetch
-    }
-  };
-
-  // Get aggregated metrics from video analytics data
-  const aggregatedAnalytics = useMemo(() => {
-    if (analyticsData.length === 0) {
-      return {
-        totalViews: 0,
-        totalEngagement: 0,
-        totalSubscribers: 0,
-        averageEngagementRate: 0,
-      };
-    }
-
-    // Use daily values from video analytics
-    const totalViews = analyticsData.reduce((sum, item) => sum + (item.daily_views || 0), 0);
-    const totalEngagement = analyticsData.reduce((sum, item) => sum + (item.daily_engagement || 0), 0);
-    const averageEngagementRate = totalViews > 0 ? (totalEngagement / totalViews) * 100 : 0;
-
-    // Get current total subscribers from latest data across all creators
-    const latestDate = analyticsData[analyticsData.length - 1]?.date;
-    const totalSubscribers = latestDate ? 
-      creatorAnalyticsData
-        .filter(item => item.date === latestDate)
-        .reduce((sum, item) => sum + item.subscribers, 0) : 0;
-
-    return {
-      totalViews,
-      totalEngagement,
-      totalSubscribers,
-      averageEngagementRate
-    };
-  }, [analyticsData, creatorAnalyticsData]);
-
-  // Get individual creator metrics using video analytics
-  const getCreatorMetrics = useCallback((creatorId: string) => {
-    const creatorData = creatorAnalyticsData.filter(d => d.creator_id === creatorId);
-    if (creatorData.length === 0) return null;
-
-    const latestData = creatorData[creatorData.length - 1];
-    const totalViews = creatorData.reduce((sum, item) => sum + (item.daily_views || 0), 0);
-    const totalEngagement = creatorData.reduce((sum, item) => sum + (item.daily_engagement || 0), 0);
-    
-    return {
-      views: totalViews,
-      engagement: totalEngagement,
-      subscribers: latestData?.subscribers || 0,
-      engagementRate: totalViews > 0 ? ((totalEngagement / totalViews) * 100).toFixed(2) : "0.00"
-    };
-  }, [creatorAnalyticsData]);
+  }, [creatorFilter.activeCreators.length, dateRange, creatorFilter.selectedPlatform, fetchVideoAnalytics]);
 
   if (!user) {
     return (
@@ -247,30 +61,26 @@ const RosterDashboard = () => {
     );
   }
 
-  const totalCreators = activeCreators.length;
-  const creatorsWithYoutube = activeCreators.filter(c => hasValue(getJsonObject(c.channel_links), 'youtube')).length;
-  const creatorsWithInstagram = activeCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'instagram')).length;
-  const creatorsWithTiktok = activeCreators.filter(c => hasValue(getJsonObject(c.social_media_handles), 'tiktok')).length;
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="mb-6">
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Roster Dashboard</h1>
               <p className="text-gray-600 mt-2">Overview of your creator roster and video analytics</p>
               <p className="text-sm text-gray-500 mt-1">
-                Showing daily video performance for {totalCreators} creator{totalCreators !== 1 ? 's' : ''}
+                Showing daily video performance for {creatorFilter.platformCounts.total} creator{creatorFilter.platformCounts.total !== 1 ? 's' : ''}
               </p>
             </div>
             <div className="flex gap-4 flex-wrap">
               <DateRangePicker
                 dateRange={dateRange}
-                onDateRangeChange={handleDateRangeChange}
+                onDateRangeChange={setDateRange}
               />
               
-              <Select value={selectedPlatform} onValueChange={handlePlatformChange}>
+              <Select value={creatorFilter.selectedPlatform} onValueChange={creatorFilter.setSelectedPlatform}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Filter by platform" />
                 </SelectTrigger>
@@ -282,12 +92,19 @@ const RosterDashboard = () => {
                 </SelectContent>
               </Select>
 
-              <Button onClick={handleRefreshAnalytics} disabled={refreshing || analyticsLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              <Button 
+                onClick={() => analyticsRefresh.handleRefreshAnalytics(creatorFilter.activeCreators, dateRange, creatorFilter.selectedPlatform)} 
+                disabled={analyticsRefresh.refreshing || analyticsLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${analyticsRefresh.refreshing ? 'animate-spin' : ''}`} />
                 Refresh Video Data
               </Button>
               
-              <Button onClick={handleManualRefresh} variant="outline" disabled={analyticsLoading}>
+              <Button 
+                onClick={() => analyticsRefresh.handleManualRefresh(creatorFilter.activeCreators, dateRange, creatorFilter.selectedPlatform)} 
+                variant="outline" 
+                disabled={analyticsLoading}
+              >
                 <RefreshCw className={`h-4 w-4 mr-2 ${analyticsLoading ? 'animate-spin' : ''}`} />
                 Reload Dashboard
               </Button>
@@ -301,19 +118,19 @@ const RosterDashboard = () => {
             <CardTitle className="flex justify-between items-center">
               <span>Creator Filter</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleSelectAll}>Select All</Button>
-                <Button variant="outline" size="sm" onClick={handleSelectNone}>Select None</Button>
+                <Button variant="outline" size="sm" onClick={creatorFilter.handleSelectAll}>Select All</Button>
+                <Button variant="outline" size="sm" onClick={creatorFilter.handleSelectNone}>Select None</Button>
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredCreators.map((creator) => (
+              {creatorFilter.filteredCreators.map((creator) => (
                 <div key={creator.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={creator.id}
-                    checked={selectedCreatorIds.includes(creator.id)}
-                    onCheckedChange={(checked) => handleCreatorToggle(creator.id, checked as boolean)}
+                    checked={creatorFilter.selectedCreatorIds.includes(creator.id)}
+                    onCheckedChange={(checked) => creatorFilter.handleCreatorToggle(creator.id, checked as boolean)}
                   />
                   <label htmlFor={creator.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     {creator.creator_name}
@@ -336,7 +153,7 @@ const RosterDashboard = () => {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{totalCreators}</div>
+                  <div className="text-2xl font-bold">{creatorFilter.platformCounts.total}</div>
                 </CardContent>
               </Card>
 
@@ -346,7 +163,7 @@ const RosterDashboard = () => {
                   <Youtube className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{creatorsWithYoutube}</div>
+                  <div className="text-2xl font-bold">{creatorFilter.platformCounts.youtube}</div>
                 </CardContent>
               </Card>
 
@@ -356,7 +173,7 @@ const RosterDashboard = () => {
                   <Instagram className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{creatorsWithInstagram}</div>
+                  <div className="text-2xl font-bold">{creatorFilter.platformCounts.instagram}</div>
                 </CardContent>
               </Card>
 
@@ -366,7 +183,7 @@ const RosterDashboard = () => {
                   <span className="h-4 w-4 text-muted-foreground font-bold text-xs">T</span>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{creatorsWithTiktok}</div>
+                  <div className="text-2xl font-bold">{creatorFilter.platformCounts.tiktok}</div>
                 </CardContent>
               </Card>
 
@@ -407,16 +224,16 @@ const RosterDashboard = () => {
                   <CardTitle>Daily Video Performance Trends</CardTitle>
                 </CardHeader>
                 <CardContent>
-            <AnalyticsChart 
-              data={analyticsData.map(item => ({
-                date: item.date,
-                views: item.daily_views || 0,
-                engagement: item.daily_engagement || 0,
-                subscribers: item.subscribers || 0
-              }))} 
-              selectedPlatform={selectedPlatform}
-              loading={analyticsLoading}
-            />
+                  <AnalyticsChart 
+                    data={analyticsData.map(item => ({
+                      date: item.date,
+                      views: item.daily_views || 0,
+                      engagement: item.daily_engagement || 0,
+                      subscribers: item.subscribers || 0
+                    }))} 
+                    selectedPlatform={creatorFilter.selectedPlatform}
+                    loading={analyticsLoading}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -427,58 +244,30 @@ const RosterDashboard = () => {
                 <CardTitle>Creator Video Performance Breakdown</CardTitle>
               </CardHeader>
               <CardContent>
-                {activeCreators.length === 0 ? (
+                {creatorFilter.activeCreators.length === 0 ? (
                   <p className="text-center text-gray-600 py-8">
                     No creators selected. Please select creators from the filter above.
                   </p>
                 ) : (
                   <div className="space-y-6">
-                    {analyticsLoading ? (
-                      <div className="text-center py-8">Loading video analytics data...</div>
-                    ) : (
-                      activeCreators.map((creator) => {
-                        const channelLinks = getJsonObject(creator.channel_links);
-                        const socialHandles = getJsonObject(creator.social_media_handles);
-                        const metrics = getCreatorMetrics(creator.id);
-                        
-                        const platforms = [];
-                        if ((selectedPlatform === "all" || selectedPlatform === "youtube") && hasValue(channelLinks, 'youtube') && metrics) {
-                          platforms.push({
+                    {creatorFilter.activeCreators.map((creator) => {
+                      const metrics = getCreatorMetrics(creator.id);
+                      if (!metrics) return null;
+
+                      return (
+                        <CreatorMetrics
+                          key={creator.id}
+                          creatorName={creator.creator_name}
+                          platforms={[{
                             platform: 'YouTube',
                             views: metrics.views,
                             engagement: metrics.engagement,
                             subscribers: metrics.subscribers,
                             engagementRate: metrics.engagementRate
-                          });
-                        }
-                        if ((selectedPlatform === "all" || selectedPlatform === "instagram") && hasValue(socialHandles, 'instagram')) {
-                          platforms.push({
-                            platform: 'Instagram',
-                            views: 0,
-                            engagement: 0,
-                            subscribers: 0,
-                            engagementRate: "0.00"
-                          });
-                        }
-                        if ((selectedPlatform === "all" || selectedPlatform === "tiktok") && hasValue(socialHandles, 'tiktok')) {
-                          platforms.push({
-                            platform: 'TikTok',
-                            views: 0,
-                            engagement: 0,
-                            subscribers: 0,
-                            engagementRate: "0.00"
-                          });
-                        }
-                        
-                        return platforms.length > 0 ? (
-                          <CreatorMetrics
-                            key={creator.id}
-                            creatorName={creator.creator_name}
-                            platforms={platforms}
-                          />
-                        ) : null;
-                      })
-                    )}
+                          }]}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
