@@ -252,9 +252,9 @@ export const useCampaigns = () => {
         let analyticsProcessed = 0;
         
         for (const contentUrl of campaignData.content_urls) {
-          if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
+          if (contentUrl.url.trim()) {
             try {
-              console.log(`Processing YouTube URL: ${contentUrl.url}`);
+              console.log(`Processing ${contentUrl.platform} URL: ${contentUrl.url}`);
               await fetchDirectAnalytics(typedCampaign.id, contentUrl.url);
               analyticsProcessed++;
             } catch (analyticsError) {
@@ -271,12 +271,12 @@ export const useCampaigns = () => {
 
           toast({
             title: "Success",
-            description: `Campaign created and ${analyticsProcessed} video(s) processed for analytics`,
+            description: `Campaign created and ${analyticsProcessed} content URL(s) processed for analytics`,
           });
         } else {
           toast({
             title: "Campaign Created",
-            description: "Campaign created but no valid YouTube URLs found for analytics",
+            description: "Campaign created but no valid content URLs found for analytics",
             variant: "default",
           });
         }
@@ -288,7 +288,7 @@ export const useCampaigns = () => {
       } else {
         toast({
           title: "Success",
-          description: "Campaign created successfully - add YouTube URLs to fetch analytics",
+          description: "Campaign created successfully - add content URLs to fetch analytics",
         });
       }
       
