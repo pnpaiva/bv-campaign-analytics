@@ -20,18 +20,33 @@ export const useDirectAnalytics = () => {
         throw new Error('Empty video URL provided');
       }
 
-      // Validate YouTube URL format
+      // Determine platform and validate URL
+      let platform = '';
+      let functionName = '';
+      
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-      if (!youtubeRegex.test(cleanUrl)) {
-        throw new Error('Invalid YouTube URL format');
+      const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+      const tiktokRegex = /(?:tiktok\.com\/@[\w.-]+\/video\/(\d+))/;
+
+      if (youtubeRegex.test(cleanUrl)) {
+        platform = 'youtube';
+        functionName = 'direct-youtube-analytics';
+      } else if (instagramRegex.test(cleanUrl)) {
+        platform = 'instagram';
+        functionName = 'fetch-instagram-analytics';
+      } else if (tiktokRegex.test(cleanUrl)) {
+        platform = 'tiktok';
+        functionName = 'fetch-tiktok-analytics';
+      } else {
+        throw new Error('Invalid URL format. Please provide a valid YouTube, Instagram, or TikTok URL.');
       }
 
-      console.log('Calling direct-youtube-analytics function...');
+      console.log(`Calling ${functionName} function for ${platform}...`);
       
-      const { data, error } = await supabase.functions.invoke('direct-youtube-analytics', {
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { 
           campaign_id: campaignId,
-          video_url: cleanUrl
+          content_url: cleanUrl
         }
       });
 
@@ -52,7 +67,7 @@ export const useDirectAnalytics = () => {
 
       toast({
         title: "Analytics Updated!",
-        description: `Successfully updated: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
+        description: `Successfully updated ${platform}: ${data.data?.views || 0} views, ${data.data?.engagement || 0} engagement`,
       });
 
       return data;
