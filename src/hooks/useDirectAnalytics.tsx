@@ -28,6 +28,11 @@ export const useDirectAnalytics = () => {
       const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
       const tiktokRegex = /(?:tiktok\.com\/@[\w.-]+\/video\/(\d+))/;
 
+      console.log('=== URL Platform Detection ===');
+      console.log('Testing YouTube regex:', youtubeRegex.test(cleanUrl));
+      console.log('Testing Instagram regex:', instagramRegex.test(cleanUrl));
+      console.log('Testing TikTok regex:', tiktokRegex.test(cleanUrl));
+
       if (youtubeRegex.test(cleanUrl)) {
         platform = 'youtube';
         functionName = 'direct-youtube-analytics';

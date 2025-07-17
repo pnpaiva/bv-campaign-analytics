@@ -103,6 +103,8 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
       }
     } else if (contentUrls[index].platform === 'Instagram') {
       const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+      console.log('Testing Instagram URL:', url);
+      console.log('Instagram regex test result:', instagramRegex.test(url));
       if (!instagramRegex.test(url)) {
         alert('Please enter a valid Instagram URL (post or reel)');
         return;

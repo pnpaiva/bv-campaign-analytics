@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings, Youtube, Instagram, ExternalLink } from "lucide-react";
+import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings, Youtube, Instagram, ExternalLink, Music } from "lucide-react";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
 import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
@@ -119,7 +119,7 @@ export default function Campaigns() {
       case 'instagram':
         return <Instagram className="h-3 w-3 text-pink-600" />;
       case 'tiktok':
-        return <div className="h-3 w-3 bg-black rounded" />;
+        return <Music className="h-3 w-3 text-black" />;
       default:
         return <ExternalLink className="h-3 w-3 text-gray-600" />;
     }

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Campaign } from "@/hooks/useCampaigns";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Youtube, Instagram, ExternalLink, Calendar, DollarSign, Eye, Heart, MessageCircle, TrendingUp } from "lucide-react";
+import { Youtube, Instagram, ExternalLink, Calendar, DollarSign, Eye, Heart, MessageCircle, TrendingUp, Music } from "lucide-react";
 
 interface CampaignDetailDialogProps {
   campaign: Campaign | null;
@@ -75,7 +75,7 @@ export const CampaignDetailDialog = ({
       case 'instagram':
         return <Instagram className="h-4 w-4 text-pink-600" />;
       case 'tiktok':
-        return <div className="h-4 w-4 bg-black rounded" />;
+        return <Music className="h-4 w-4 text-black" />;
       default:
         return <ExternalLink className="h-4 w-4" />;
     }
