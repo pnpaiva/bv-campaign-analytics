@@ -133,9 +133,9 @@ export const useCampaigns = () => {
         if (campaign.analytics_data && campaign.analytics_data.length > 0) {
           // Use existing analytics data URLs
           for (const analytics of campaign.analytics_data) {
-            if (analytics.platform === 'youtube' && analytics.content_url) {
+            if (analytics.content_url) {
               try {
-                console.log(`Refreshing analytics for URL: ${analytics.content_url}`);
+                console.log(`Refreshing analytics for ${analytics.platform}: ${analytics.content_url}`);
                 await fetchDirectAnalytics(campaign.id, analytics.content_url);
                 refreshCount++;
               } catch (error) {
@@ -144,7 +144,7 @@ export const useCampaigns = () => {
             }
           }
         } else {
-          // If no analytics data exists, try to find YouTube URLs from recent campaign creation
+          // If no analytics data exists, try to find content URLs from recent campaign creation
           // This is a fallback for campaigns that might have been created with URLs but no analytics
           console.log(`No analytics data found for campaign: ${campaign.brand_name}`);
         }
@@ -327,9 +327,9 @@ export const useCampaigns = () => {
         if (analyticsData && analyticsData.length > 0) {
           let processedCount = 0;
           for (const data of analyticsData) {
-            if (data.platform === 'youtube' && data.content_url) {
+            if (data.content_url) {
               try {
-                console.log(`Refreshing analytics for: ${data.content_url}`);
+                console.log(`Refreshing analytics for ${data.platform}: ${data.content_url}`);
                 await fetchDirectAnalytics(campaignId, data.content_url);
                 processedCount++;
               } catch (error) {
@@ -339,10 +339,10 @@ export const useCampaigns = () => {
           }
           
           if (processedCount === 0) {
-            throw new Error('No YouTube URLs found to refresh');
+            throw new Error('No content URLs found to refresh');
           }
         } else {
-          throw new Error('No analytics data found for this campaign. Please add YouTube URLs first.');
+          throw new Error('No analytics data found for this campaign. Please add content URLs first.');
         }
       }
       
@@ -446,9 +446,9 @@ export const useCampaigns = () => {
         console.log('Processing updated content URLs:', campaignData.content_urls);
         
         for (const contentUrl of campaignData.content_urls) {
-          if (contentUrl.url.trim() && contentUrl.platform.toLowerCase() === 'youtube') {
+          if (contentUrl.url.trim()) {
             try {
-              console.log('Fetching analytics for updated URL:', contentUrl.url);
+              console.log(`Fetching analytics for updated ${contentUrl.platform} URL:`, contentUrl.url);
               await fetchDirectAnalytics(campaignId, contentUrl.url);
             } catch (analyticsError) {
               console.error('Analytics fetch failed for updated URL:', contentUrl.url, analyticsError);

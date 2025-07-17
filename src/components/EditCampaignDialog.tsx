@@ -21,7 +21,7 @@ interface EditCampaignDialogProps {
     campaign_date?: string;
     campaign_month?: string;
     client_id?: string;
-    master_campaign_id?: string;
+    master_campaign_name?: string; // Updated to use name instead of id
     deal_value?: number;
     content_urls?: { platform: string; url: string }[];
   }) => Promise<void>;
@@ -132,7 +132,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
         brand_name: brandName,
         creator_id: selectedCreator,
         client_id: selectedClient || undefined,
-        master_campaign_id: selectedMasterCampaign || undefined,
+        master_campaign_name: selectedMasterCampaign || undefined, // Use master_campaign_name instead of master_campaign_id
         campaign_date: campaignDate,
         campaign_month: campaignMonth || undefined,
         deal_value: dealValue ? parseFloat(dealValue) : undefined,
