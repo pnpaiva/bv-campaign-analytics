@@ -94,11 +94,23 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
     const url = contentUrls[index].url.trim();
     if (!url) return;
     
-    // Basic YouTube URL validation
+    // URL validation by platform
     if (contentUrls[index].platform === 'YouTube') {
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
       if (!youtubeRegex.test(url)) {
         alert('Please enter a valid YouTube URL');
+        return;
+      }
+    } else if (contentUrls[index].platform === 'Instagram') {
+      const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+      if (!instagramRegex.test(url)) {
+        alert('Please enter a valid Instagram URL (post or reel)');
+        return;
+      }
+    } else if (contentUrls[index].platform === 'TikTok') {
+      const tiktokRegex = /(?:tiktok\.com\/@[\w.-]+\/video\/(\d+))/;
+      if (!tiktokRegex.test(url)) {
+        alert('Please enter a valid TikTok URL');
         return;
       }
     }
