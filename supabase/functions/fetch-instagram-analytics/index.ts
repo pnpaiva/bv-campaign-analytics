@@ -40,8 +40,8 @@ serve(async (req) => {
     const postId = match[1];
     console.log('Instagram Post ID:', postId);
 
-    // Call Apify Instagram actor
-    const apifyResponse = await fetch(`https://api.apify.com/v2/acts/nH2AHrwxeTRJoN5hX/run-sync-get-dataset-items`, {
+    // Call Apify Instagram Post Scraper
+    const apifyResponse = await fetch(`https://api.apify.com/v2/acts/apify~instagram-post-scraper/runs`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apifyApiKey}`,
@@ -49,7 +49,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         directUrls: [content_url],
-        resultsLimit: 1
+        resultsLimit: 1,
+        addParentData: false
       })
     });
 
@@ -59,8 +60,31 @@ serve(async (req) => {
       throw new Error(`Apify API error: ${apifyResponse.status} - ${errorText}`);
     }
 
-    const apifyData = await apifyResponse.json();
-    console.log('Apify response:', apifyData);
+    const runResponse = await apifyResponse.json();
+    console.log('Apify run response:', runResponse);
+    
+    // Wait for the run to complete and get results
+    const runId = runResponse.data.id;
+    console.log('Run ID:', runId);
+    
+    // Wait a bit for the run to complete
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Get the dataset items
+    const datasetResponse = await fetch(`https://api.apify.com/v2/acts/apify~instagram-post-scraper/runs/${runId}/dataset/items`, {
+      headers: {
+        'Authorization': `Bearer ${apifyApiKey}`,
+      }
+    });
+    
+    if (!datasetResponse.ok) {
+      const errorText = await datasetResponse.text();
+      console.error('Dataset fetch error:', errorText);
+      throw new Error(`Dataset fetch error: ${datasetResponse.status} - ${errorText}`);
+    }
+
+    const apifyData = await datasetResponse.json();
+    console.log('Apify dataset response:', apifyData);
 
     if (!apifyData || apifyData.length === 0) {
       throw new Error('No data returned from Apify');
