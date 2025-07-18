@@ -24,9 +24,10 @@ export async function fetchInstagramData(url: string): Promise<InstagramPostData
   }
 
   try {
-    // Validate Instagram URL
-    const instagramUrlPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
+    // Validate Instagram URL - Updated pattern to be more flexible
+    const instagramUrlPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[\w-]+\/?/i;
     if (!instagramUrlPattern.test(url)) {
+      console.error('Invalid Instagram URL:', url);
       toast.error('Invalid Instagram URL format');
       return null;
     }
@@ -152,12 +153,16 @@ function calculateEngagementRate(likes: number, comments: number, views: number)
 }
 
 function determineMediaType(typeOrUrl: string): 'photo' | 'video' | 'reel' {
-  if (typeOrUrl.includes('reel')) return 'reel';
-  if (typeOrUrl.includes('video') || typeOrUrl.includes('tv')) return 'video';
+  const urlLower = typeOrUrl.toLowerCase();
+  if (urlLower.includes('reel')) return 'reel';
+  if (urlLower.includes('video') || urlLower.includes('tv')) return 'video';
   return 'photo';
 }
 
 export function isInstagramUrl(url: string): boolean {
-  const instagramUrlPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
-  return instagramUrlPattern.test(url);
+  // More flexible pattern that accepts various Instagram URL formats
+  const instagramUrlPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[\w-]+\/?/i;
+  const isValid = instagramUrlPattern.test(url);
+  console.log('Checking Instagram URL:', url, 'Valid:', isValid);
+  return isValid;
 }
