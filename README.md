@@ -1,13 +1,15 @@
 # BV Campaign Analytics
 
-A comprehensive analytics platform for tracking influencer marketing campaigns, built for Beyond Views.
+A comprehensive analytics platform for tracking influencer marketing campaigns across YouTube, Instagram, and TikTok, built for Beyond Views.
 
 ## Features
 
-- **Multi-Platform Support**: Track performance across YouTube and Instagram
+- **Multi-Platform Support**: Track performance across YouTube, Instagram, and TikTok
 - **Real-Time Analytics**: Fetch live engagement metrics using official APIs
 - **Campaign Management**: Create, edit, and monitor multiple campaigns
-- **Secure API Integration**: Apify for Instagram, YouTube Data API for YouTube
+- **Secure API Integration**: 
+  - YouTube Data API v3 for YouTube
+  - Apify actors for Instagram and TikTok
 - **Beautiful UI**: Built with React, TypeScript, and Tailwind CSS
 
 ## Quick Start
@@ -17,7 +19,7 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
 - Node.js (v16 or higher)
 - npm or yarn
 - API Keys:
-  - Apify API Token (for Instagram data)
+  - Apify API Token (for Instagram and TikTok data)
   - YouTube Data API Key
 
 ### Installation
@@ -42,7 +44,8 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
    ```
    VITE_APIFY_API_TOKEN=your_apify_token_here
    VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
-   VITE_APIFY_INSTAGRAM_ACTOR=apify/instagram-scraper
+   VITE_APIFY_INSTAGRAM_ACTOR=apify/instagram-post-scraper
+   VITE_APIFY_TIKTOK_ACTOR=clockworks/free-tiktok-scraper
    ```
 
 4. Start the development server:
@@ -52,16 +55,23 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
 
 5. Open [http://localhost:5173](http://localhost:5173) in your browser
 
-## Getting API Keys
+## API Configuration
 
-### Apify (Instagram Data)
+### Apify Actors Used
+
+- **Instagram**: `apify/instagram-post-scraper`
+- **TikTok**: `clockworks/free-tiktok-scraper`
+
+### Getting API Keys
+
+#### Apify (Instagram & TikTok Data)
 
 1. Sign up at [Apify.com](https://apify.com)
 2. Go to [Account - Integrations](https://console.apify.com/account/integrations)
 3. Copy your API token
 4. Monitor usage at [Billing](https://console.apify.com/billing/payment)
 
-### YouTube Data API
+#### YouTube Data API
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
@@ -78,13 +88,23 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
    - Campaign name
    - Brand name
    - Creator name
-   - Content URLs (YouTube and/or Instagram)
+   - Content URLs (YouTube, Instagram, and/or TikTok)
 3. Click "Save"
 
-### Adding Content URLs
+### Supported URL Formats
 
-- **YouTube**: `https://youtube.com/watch?v=VIDEO_ID`
-- **Instagram**: `https://instagram.com/p/POST_ID/` or `/reel/REEL_ID/`
+- **YouTube**: 
+  - `https://youtube.com/watch?v=VIDEO_ID`
+  - `https://youtu.be/VIDEO_ID`
+  
+- **Instagram**: 
+  - `https://instagram.com/p/POST_ID/`
+  - `https://instagram.com/reel/REEL_ID/`
+  - `https://instagram.com/tv/TV_ID/`
+  
+- **TikTok**:
+  - `https://tiktok.com/@username/video/VIDEO_ID`
+  - `https://vm.tiktok.com/SHORT_ID`
 
 ### Refreshing Analytics
 
@@ -94,6 +114,7 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
    - Total views
    - Engagement rate
    - Platform breakdown
+   - Individual content performance
 
 ## Security
 
@@ -109,15 +130,28 @@ A comprehensive analytics platform for tracking influencer marketing campaigns, 
 ```
 src/
 ├── components/       # Reusable UI components
+├── config/          # API configuration
 ├── hooks/           # Custom React hooks
 ├── pages/           # Page components
 ├── services/        # API integration services
 │   ├── instagramApi.ts
 │   ├── youtubeApi.ts
+│   ├── tiktokApi.ts
 │   └── campaignAnalytics.ts
 ├── types/           # TypeScript type definitions
 └── utils/           # Utility functions
 ```
+
+## API Rate Limits & Costs
+
+### YouTube
+- **Free Tier**: 10,000 units/day
+- **Video stats**: ~3 units per request
+
+### Apify (Instagram & TikTok)
+- **Instagram**: ~0.04 compute units per post
+- **TikTok**: ~0.02 compute units per video
+- Check your [Apify billing](https://console.apify.com/billing) for current usage
 
 ## Development
 
@@ -135,6 +169,24 @@ src/
 3. Update types in `src/types/campaign.ts`
 4. Update UI components to display new platform data
 
+## Troubleshooting
+
+### "No analytics data found"
+- Check if API keys are correctly set in `.env`
+- Verify URLs are in the correct format
+- Check browser console for API errors
+- Ensure you have sufficient Apify credits
+
+### "Invalid URL"
+- Ensure URL is a direct link to content
+- Check supported formats above
+- Remove any tracking parameters
+
+### API Errors
+- **429 Too Many Requests**: You've hit rate limits
+- **403 Forbidden**: Check API key validity
+- **Timeout**: Apify actors may take 30-60 seconds
+
 ## Deployment
 
 ### Lovable.dev
@@ -151,21 +203,6 @@ This project is integrated with Lovable.dev. Changes pushed to GitHub automatica
 2. Deploy the `dist` folder to your hosting service
 
 3. Set environment variables in your hosting platform
-
-## Troubleshooting
-
-### "No analytics data found"
-- Check if API keys are correctly set in `.env`
-- Verify URLs are in the correct format
-- Check browser console for API errors
-
-### "Invalid Instagram URL"
-- Ensure URL is a direct link to a post or reel
-- Format: `https://instagram.com/p/POST_ID/`
-
-### API Rate Limits
-- YouTube: 10,000 units/day (free tier)
-- Apify: Check your account limits
 
 ## Contributing
 
