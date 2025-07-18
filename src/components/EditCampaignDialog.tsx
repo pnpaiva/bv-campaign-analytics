@@ -102,7 +102,7 @@ export const EditCampaignDialog = ({ campaign, open, onOpenChange, onSave }: Edi
         return;
       }
     } else if (contentUrls[index].platform === 'Instagram') {
-      const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+      const instagramRegex = /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
       console.log('Testing Instagram URL:', url);
       console.log('Instagram regex test result:', instagramRegex.test(url));
       if (!instagramRegex.test(url)) {

@@ -25,7 +25,7 @@ export const useDirectAnalytics = () => {
       let functionName = '';
       
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-      const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+      const instagramRegex = /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
       const tiktokRegex = /(?:tiktok\.com\/@[\w.-]+\/video\/(\d+))/;
 
       console.log('=== URL Platform Detection ===');
