@@ -1,100 +1,130 @@
-# Security Best Practices for BV Campaign Analytics
+# Security & Compliance - Beyond Views Internal
 
-## Environment Variables
+**CONFIDENTIAL - INTERNAL USE ONLY**
 
-### Never Commit Sensitive Data
-- **NEVER** commit `.env` files to the repository
-- **NEVER** hardcode API keys, passwords, or tokens in your code
-- **ALWAYS** use environment variables for sensitive configuration
+## Access Control
 
-### Setting Up Environment Variables
+### Authorized Personnel Only
+- Access restricted to Beyond Views employees
+- Contractors must have signed NDAs
+- All access must be approved by Pedro or admin team
 
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
+### Repository Access
+- Repository should be **PRIVATE** on GitHub
+- Enable branch protection on `main`
+- Require PR reviews before merging
+- Enable 2FA for all team GitHub accounts
 
-2. Add your actual API keys to `.env`:
-   ```
-   VITE_APIFY_API_TOKEN=your_actual_apify_token
-   VITE_YOUTUBE_API_KEY=your_actual_youtube_key
-   ```
+## API Key Management
 
-3. **NEVER** share your `.env` file or commit it to Git
+### Internal Credential Vault
+- Never commit API keys to the repository
+- Use Beyond Views' secure credential management system
+- Keys are rotated monthly by the tech team
+- Each team member gets individual API access when needed
 
-## API Key Security
+### API Key Access Levels
+1. **Admin Level**: Full access (Pedro, Tech Lead)
+2. **Team Level**: Read/write access (Campaign Managers)
+3. **View Level**: Read-only access (Interns, Contractors)
 
-### Apify API Token
-- Get your token from: https://console.apify.com/account/integrations
-- Keep it secret and rotate regularly
-- Monitor usage to detect any unauthorized access
+## Data Protection
 
-### YouTube API Key
-- Get your key from: https://console.cloud.google.com/
-- Restrict it to specific APIs (YouTube Data API v3)
-- Add referrer restrictions for production
+### Client Data Handling
+- All campaign data is confidential
+- Client analytics must not be shared externally
+- Data exports require admin approval
+- Delete local data after campaign completion
 
-## Code Security
+### LGPD/GDPR Compliance
+- No personal data should be stored in the app
+- Campaign data should use client codes, not names
+- Analytics data retention: 90 days maximum
+- Right to deletion must be honored within 48 hours
 
-### Before Committing
-1. Search for hardcoded secrets:
-   ```bash
-   # Search for potential secrets
-   grep -r "api_key\|secret\|password\|token" src/
-   ```
+## Security Protocols
 
-2. Review changes:
-   ```bash
-   git diff --staged
-   ```
+### Development Security
+```bash
+# Before EVERY commit:
+git diff --staged | grep -i "api\|key\|secret\|token\|password"
+# This should return NOTHING
+```
 
-3. Use environment variables:
-   ```typescript
-   // ❌ BAD
-   const API_KEY = "sk-1234567890";
-   
-   // ✅ GOOD
-   const API_KEY = import.meta.env.VITE_API_KEY;
-   ```
+### Production Security
+1. HTTPS only - no HTTP access
+2. API rate limiting implemented
+3. Request logging for audit trails
+4. Monthly security reviews
 
-## Production Security
+## Incident Response
 
-### When Deploying
-1. Set environment variables in your hosting platform
-2. Use HTTPS only
-3. Implement rate limiting
-4. Monitor API usage
-5. Rotate keys regularly
+### If API Keys Are Exposed
+1. **Immediately** rotate all affected keys
+2. Notify pedro@beyondviews.com within 15 minutes
+3. Check API logs for unauthorized usage
+4. Document incident in security log
 
-### Lovable.dev Deployment
-- Environment variables are set in the Lovable project settings
-- Never expose sensitive data in the UI
-- Use server-side validation for all inputs
+### If Client Data Is Breached
+1. Immediate containment - revoke all access
+2. Notify Pedro and legal team immediately
+3. Prepare client notification (legal team approval required)
+4. Full audit of access logs
 
-## If You Accidentally Commit Secrets
+## Monitoring & Auditing
 
-1. **Immediately rotate the exposed keys**
-2. Remove from Git history:
-   ```bash
-   git filter-branch --force --index-filter \
-     'git rm --cached --ignore-unmatch path/to/file' \
-     --prune-empty --tag-name-filter cat -- --all
-   ```
-3. Force push to all branches
-4. Contact support if using third-party services
+### Daily Checks
+- API usage against limits
+- Unusual access patterns
+- Failed authentication attempts
 
-## Security Checklist
+### Weekly Reviews
+- Access list verification
+- API cost analysis
+- Performance metrics
 
-- [ ] `.env` is in `.gitignore`
-- [ ] No hardcoded API keys in code
-- [ ] All sensitive config uses environment variables
-- [ ] API keys have appropriate restrictions
-- [ ] Regular key rotation schedule
-- [ ] Monitoring for unusual API usage
-- [ ] HTTPS enforced in production
-- [ ] Input validation implemented
-- [ ] Error messages don't expose sensitive info
+### Monthly Audits
+- Full security audit
+- Key rotation
+- Access permission review
+- Compliance check
 
-## Contact
+## Best Practices for BV Team
 
-For security concerns, contact the repository owner immediately.
+### Code Security
+1. Never hardcode credentials
+2. Use environment variables exclusively
+3. Implement input validation
+4. Sanitize all user inputs
+5. Log security events
+
+### Communication Security
+1. Never share credentials via email/Slack
+2. Use BV's secure credential system
+3. Report suspicious activity immediately
+4. Keep client data discussions in private channels
+
+## Compliance Requirements
+
+### Client Contracts
+- Ensure data usage aligns with client agreements
+- Respect data retention policies
+- Honor exclusivity clauses
+
+### Internal Policies
+- Follow BV's data governance policy
+- Adhere to social media platform ToS
+- Maintain professional standards
+
+## Emergency Contacts
+
+- **Security Lead**: pedro@beyondviews.com
+- **Technical Emergency**: tech@beyondviews.com  
+- **Legal/Compliance**: legal@beyondviews.com
+
+---
+
+**Remember**: Security is everyone's responsibility. When in doubt, ask!
+
+**Last Updated**: November 2024
+**Next Review**: December 2024
