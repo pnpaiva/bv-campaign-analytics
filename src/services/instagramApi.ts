@@ -14,7 +14,7 @@ interface InstagramPostData {
 
 // Apify API configuration
 const APIFY_API_TOKEN = import.meta.env.VITE_APIFY_API_TOKEN || '';
-const APIFY_ACTOR = import.meta.env.VITE_APIFY_INSTAGRAM_ACTOR || 'apify/instagram-scraper';
+const APIFY_ACTOR = import.meta.env.VITE_APIFY_INSTAGRAM_ACTOR || 'apify/instagram-post-scraper';
 
 export async function fetchInstagramData(url: string): Promise<InstagramPostData | null> {
   if (!APIFY_API_TOKEN) {
@@ -33,12 +33,13 @@ export async function fetchInstagramData(url: string): Promise<InstagramPostData
 
     console.log('Starting Apify actor for Instagram URL:', url);
 
-    // Start the Apify actor run
-    const runResponse = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR}/runs`, {
+    // Use the specific endpoint format you provided
+    const runEndpoint = `https://api.apify.com/v2/acts/${APIFY_ACTOR}/runs?token=${APIFY_API_TOKEN}`;
+    
+    const runResponse = await fetch(runEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${APIFY_API_TOKEN}`,
       },
       body: JSON.stringify({
         input: {
@@ -68,10 +69,11 @@ export async function fetchInstagramData(url: string): Promise<InstagramPostData
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
       
       const statusResponse = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}`,
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_API_TOKEN}`,
         {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${APIFY_API_TOKEN}`,
+            'Content-Type': 'application/json',
           },
         }
       );
@@ -97,10 +99,11 @@ export async function fetchInstagramData(url: string): Promise<InstagramPostData
 
     // Get the results
     const resultsResponse = await fetch(
-      `https://api.apify.com/v2/actor-runs/${runId}/dataset/items`,
+      `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${APIFY_API_TOKEN}`,
       {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${APIFY_API_TOKEN}`,
+          'Content-Type': 'application/json',
         },
       }
     );
