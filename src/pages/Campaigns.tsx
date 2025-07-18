@@ -1,390 +1,306 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, RefreshCw, Filter } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { CampaignList } from '../components/CampaignCard';
+import { CampaignAnalyticsModal, useCampaignAnalyticsModal } from '../components/CampaignAnalyticsModal';
+import { CampaignFormHandler } from '../components/CampaignFormHandler';
+import { campaignAnalyticsService } from '../services/campaign-analytics';
+import { toast } from 'sonner';
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Eye, MessageSquare, TrendingUp, Calendar, Building2, Link2, RefreshCw, Settings, Youtube, Instagram, ExternalLink, Music } from "lucide-react";
-import { useCampaigns } from "@/hooks/useCampaigns";
-import { useCampaignAnalytics } from "@/hooks/useCampaignAnalytics";
-import { CreateCampaignDialog } from "@/components/CreateCampaignDialog";
-import { EditCampaignDialog } from "@/components/EditCampaignDialog";
-import { CampaignDetailDialog } from "@/components/CampaignDetailDialog";
-import { MasterCampaignManager } from "@/components/MasterCampaignManager";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
+// Initialize Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface Campaign {
+  id: string;
+  name: string;
+  brand?: string;
+  creator?: string;
+  status: string;
+  created_at: string;
+  content_urls?: Array<{
+    url: string;
+    platform?: string;
+    analytics?: {
+      views: number;
+      engagement: number;
+      rate: number;
+    };
+  }>;
+  analytics_updated_at?: string;
+}
 
 export default function Campaigns() {
-  const { campaigns, loading, createCampaign, updateCampaign, deleteCampaign } = useCampaigns();
-  const { loading: analyticsLoading, refreshCampaignAnalytics, refreshAllCampaigns } = useCampaignAnalytics();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const [campaignUrls, setCampaignUrls] = useState({});
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+  
+  // Analytics modal state
+  const { isOpen, campaignId, openModal, closeModal } = useCampaignAnalyticsModal();
 
-  // Fetch content URLs for all campaigns
   useEffect(() => {
-    const fetchCampaignUrls = async () => {
-      if (campaigns.length === 0) return;
+    fetchCampaigns();
+  }, []);
+
+  const fetchCampaigns = async () => {
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
       
-      const campaignIds = campaigns.map(c => c.id);
-      const { data } = await supabase
-        .from('analytics_data')
-        .select('campaign_id, platform, content_url')
-        .in('campaign_id', campaignIds);
-
-      const urlsMap = {};
-      data?.forEach(item => {
-        if (!urlsMap[item.campaign_id]) {
-          urlsMap[item.campaign_id] = [];
-        }
-        urlsMap[item.campaign_id].push({
-          platform: item.platform,
-          url: item.content_url
-        });
-      });
-      
-      setCampaignUrls(urlsMap);
-    };
-
-    fetchCampaignUrls();
-  }, [campaigns]);
-
-  const handleCreateCampaign = async (campaignData) => {
-    await createCampaign(campaignData);
-  };
-
-  const handleUpdateCampaign = async (campaignData) => {
-    if (selectedCampaign) {
-      console.log('Updating campaign with data:', campaignData);
-      await updateCampaign(selectedCampaign.id, campaignData);
+      console.log('Fetched campaigns:', data);
+      setCampaigns(data || []);
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+      toast.error('Failed to load campaigns');
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleEditClick = (campaign, e) => {
-    e.stopPropagation();
-    setSelectedCampaign(campaign);
-    setEditDialogOpen(true);
-  };
-
-  const handleDeleteClick = async (campaign, e) => {
-    e.stopPropagation();
-    if (confirm('Are you sure you want to delete this campaign?')) {
-      await deleteCampaign(campaign.id);
-    }
-  };
-
-  const handleRefreshAnalytics = async (campaign, e) => {
-    e.stopPropagation();
-    console.log('Refreshing analytics for campaign:', campaign.id);
-    await refreshCampaignAnalytics(campaign.id);
   };
 
   const handleRefreshAll = async () => {
-    console.log('Starting refresh all campaigns');
-    setRefreshingAll(true);
-    const campaignIds = childCampaigns.map(c => c.id);
-    console.log('Campaign IDs to refresh:', campaignIds);
+    setIsRefreshingAll(true);
+    toast.info('Refreshing all campaign analytics...');
+    
     try {
-      await refreshAllCampaigns(campaignIds);
+      // Refresh analytics for all campaigns
+      const refreshPromises = campaigns.map(campaign => 
+        campaignAnalyticsService.refreshCampaignAnalytics(campaign.id)
+      );
+      
+      await Promise.all(refreshPromises);
+      
+      // Reload campaigns to show updated data
+      await fetchCampaigns();
+      
+      toast.success('All analytics refreshed successfully');
     } catch (error) {
-      console.error('Error in handleRefreshAll:', error);
+      console.error('Error refreshing analytics:', error);
+      toast.error('Failed to refresh some analytics');
     } finally {
-      setRefreshingAll(false);
+      setIsRefreshingAll(false);
     }
   };
 
-  const handleCardClick = (campaign) => {
-    setSelectedCampaign(campaign);
-    setDetailDialogOpen(true);
+  const handleEdit = (campaign: Campaign) => {
+    // TODO: Implement edit functionality
+    console.log('Edit campaign:', campaign);
+    toast.info('Edit functionality coming soon');
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-500';
-      case 'analyzing':
-        return 'bg-yellow-500';
-      default:
-        return 'bg-gray-500';
+  const handleRefresh = async (campaignId: string) => {
+    try {
+      toast.info('Refreshing campaign analytics...');
+      await campaignAnalyticsService.refreshCampaignAnalytics(campaignId);
+      await fetchCampaigns();
+      toast.success('Analytics refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing campaign:', error);
+      toast.error('Failed to refresh analytics');
     }
   };
 
-  const getPlatformIcon = (platform) => {
-    switch (platform?.toLowerCase()) {
-      case 'youtube':
-        return <Youtube className="h-3 w-3 text-red-600" />;
-      case 'instagram':
-        return <Instagram className="h-3 w-3 text-pink-600" />;
-      case 'tiktok':
-        return <Music className="h-3 w-3 text-black" />;
-      default:
-        return <ExternalLink className="h-3 w-3 text-gray-600" />;
+  const handleDelete = async (campaignId: string) => {
+    if (!confirm('Are you sure you want to delete this campaign?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId);
+
+      if (error) throw error;
+
+      toast.success('Campaign deleted successfully');
+      fetchCampaigns();
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      toast.error('Failed to delete campaign');
     }
   };
 
-  // Filter campaigns to show only regular campaigns (exclude master campaign templates)
-  const childCampaigns = campaigns.filter(campaign => 
-    campaign.creator_id !== "00000000-0000-0000-0000-000000000000" &&
-    !campaign.is_master_campaign_template
-  );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading campaigns...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleCreateSuccess = () => {
+    setShowCreateForm(false);
+    fetchCampaigns();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Campaigns</h1>
-            <p className="text-gray-600">Manage and track your influencer campaigns</p>
-          </div>
-          <div className="flex gap-3">
-            <Button 
-              onClick={handleRefreshAll} 
-              variant="outline" 
-              size="lg" 
-              className="gap-2"
-              disabled={refreshingAll || analyticsLoading}
-            >
-              <RefreshCw className={`h-5 w-5 ${(refreshingAll || analyticsLoading) ? 'animate-spin' : ''}`} />
-              {(refreshingAll || analyticsLoading) ? 'Refreshing...' : 'Refresh All'}
-            </Button>
-            <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
-              <Plus className="h-5 w-5" />
-              Create Campaign
-            </Button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="sm:flex sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Campaigns</h1>
+              <p className="mt-2 text-sm text-gray-600">
+                Manage and track your influencer campaigns
+              </p>
+            </div>
+            <div className="mt-4 sm:mt-0 flex gap-3">
+              <button
+                onClick={handleRefreshAll}
+                disabled={isRefreshingAll}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingAll ? 'animate-spin' : ''}`} />
+                Refresh All
+              </button>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Campaign
+              </button>
+            </div>
           </div>
         </div>
 
-        <Tabs defaultValue="campaigns" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="campaigns" className="gap-2">
-              <Calendar className="h-4 w-4" />
-              Campaigns
-            </TabsTrigger>
-            <TabsTrigger value="master-campaigns" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Master Campaigns
-            </TabsTrigger>
-          </TabsList>
+        {/* Master Campaigns Toggle (if needed) */}
+        <div className="mb-6 flex justify-end">
+          <button className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            Master Campaigns
+          </button>
+        </div>
 
-          <TabsContent value="campaigns">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {childCampaigns.map((campaign) => (
-                <Card 
-                  key={campaign.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => handleCardClick(campaign)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-1">{campaign.brand_name}</CardTitle>
-                        <CardDescription className="text-sm">
-                          {campaign.creators?.name}
-                        </CardDescription>
-                        {campaign.clients?.name && (
-                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                            <Building2 className="h-3 w-3" />
-                            {campaign.clients.name}
-                          </div>
-                        )}
+        {/* Campaign List */}
+        <CampaignList
+          campaigns={campaigns}
+          onAnalyticsClick={openModal}
+          onEdit={handleEdit}
+          onRefresh={handleRefresh}
+          onDelete={handleDelete}
+          isLoading={isLoading}
+        />
+
+        {/* Analytics Modal */}
+        {campaignId && (
+          <CampaignAnalyticsModal
+            campaignId={campaignId}
+            isOpen={isOpen}
+            onClose={closeModal}
+          />
+        )}
+
+        {/* Create Campaign Form Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+              <h2 className="text-2xl font-bold mb-6">Create New Campaign</h2>
+              
+              <CampaignFormHandler onSubmit={handleCreateSuccess}>
+                {({ handleSubmit, isLoading, error }) => (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      
+                      // Extract form data
+                      const campaignData = {
+                        name: formData.get('name') as string,
+                        brand: formData.get('brand') as string,
+                        creator: formData.get('creator') as string,
+                        status: 'active',
+                        contentUrls: [
+                          { url: formData.get('url1') as string },
+                          { url: formData.get('url2') as string },
+                          { url: formData.get('url3') as string },
+                        ].filter(item => item.url),
+                      };
+                      
+                      handleSubmit(campaignData);
+                    }}
+                  >
+                    {error && (
+                      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
+                        {error}
                       </div>
-                      <Badge className={`${getStatusColor(campaign.status)} text-white`}>
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(campaign.campaign_date).toLocaleDateString()}
-                        {campaign.campaign_month && (
-                          <span className="text-xs">
-                            (Month: {campaign.campaign_month})
-                          </span>
-                        )}
+                    )}
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Campaign Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          required
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        />
                       </div>
-
-                      {campaign.master_campaign_name && (
-                        <div className="flex items-center gap-1 text-xs text-purple-600">
-                          <Link2 className="h-3 w-3" />
-                          Master: {campaign.master_campaign_name}
-                        </div>
-                      )}
-
-                      {/* Content URLs Section */}
-                      {campaignUrls[campaign.id] && campaignUrls[campaign.id].length > 0 && (
-                        <div className="border-t pt-2">
-                          <div className="text-xs font-medium text-gray-700 mb-1">Content URLs:</div>
-                          <div className="space-y-1">
-                            {campaignUrls[campaign.id].slice(0, 2).map((url, index) => (
-                              <div key={index} className="flex items-center gap-2 text-xs">
-                                {getPlatformIcon(url.platform)}
-                                <span className="text-gray-600 truncate flex-1">
-                                  {url.platform}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="p-1 h-auto"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    window.open(url.url, '_blank');
-                                  }}
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                            {campaignUrls[campaign.id].length > 2 && (
-                              <div className="text-xs text-gray-500">
-                                +{campaignUrls[campaign.id].length - 2} more...
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-3 gap-4 py-3 border-y">
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-                            <Eye className="h-4 w-4" />
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {campaign.total_views?.toLocaleString() || '0'}
-                          </div>
-                          <div className="text-xs text-gray-500">Views</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                            <MessageSquare className="h-4 w-4" />
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {campaign.total_engagement?.toLocaleString() || '0'}
-                          </div>
-                          <div className="text-xs text-gray-500">Engagement</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
-                            <TrendingUp className="h-4 w-4" />
-                          </div>
-                          <div className="text-lg font-semibold">
-                            {campaign.engagement_rate?.toFixed(1) || '0'}%
-                          </div>
-                          <div className="text-xs text-gray-500">Rate</div>
-                        </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Brand</label>
+                        <input
+                          type="text"
+                          name="brand"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        />
                       </div>
-
-                      {campaign.deal_value && (
-                        <div className="text-center py-2">
-                          <div className="text-lg font-semibold text-green-600">
-                            ${campaign.deal_value.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-gray-500">Deal Value</div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Creator</label>
+                        <input
+                          type="text"
+                          name="creator"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Content URLs</label>
+                        <div className="space-y-2">
+                          <input
+                            type="url"
+                            name="url1"
+                            placeholder="YouTube URL"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
+                          <input
+                            type="url"
+                            name="url2"
+                            placeholder="Instagram URL"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
+                          <input
+                            type="url"
+                            name="url3"
+                            placeholder="TikTok URL"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                          />
                         </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => handleEditClick(campaign, e)}
-                          className="flex-1"
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => handleRefreshAnalytics(campaign, e)}
-                          className="flex-1"
-                          disabled={analyticsLoading}
-                        >
-                          {analyticsLoading ? 'Refreshing...' : 'Refresh'}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={(e) => handleDeleteClick(campaign, e)}
-                          className="px-3"
-                        >
-                          Delete
-                        </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    
+                    <div className="mt-6 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateForm(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isLoading ? 'Creating...' : 'Create Campaign'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </CampaignFormHandler>
             </div>
-
-            {childCampaigns.length === 0 && (
-              <div className="text-center py-20">
-                <div className="text-gray-400 mb-4">
-                  <Calendar className="h-16 w-16 mx-auto" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">No campaigns found</h3>
-                <p className="text-gray-500 mb-6">Create your first campaign to get started</p>
-                <Button onClick={() => setCreateDialogOpen(true)} size="lg" className="gap-2">
-                  <Plus className="h-5 w-5" />
-                  Create Your First Campaign
-                </Button>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="master-campaigns">
-            <MasterCampaignManager />
-          </TabsContent>
-        </Tabs>
-
-        <CreateCampaignDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-          onSave={handleCreateCampaign}
-        />
-
-        <EditCampaignDialog
-          campaign={selectedCampaign}
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          onSave={handleUpdateCampaign}
-        />
-
-        <CampaignDetailDialog
-          campaign={selectedCampaign}
-          open={detailDialogOpen}
-          onOpenChange={setDetailDialogOpen}
-          onEdit={(campaign) => {
-            setDetailDialogOpen(false);
-            setSelectedCampaign(campaign);
-            setEditDialogOpen(true);
-          }}
-          onDelete={async (campaign) => {
-            if (confirm('Are you sure you want to delete this campaign?')) {
-              await deleteCampaign(campaign.id);
-              setDetailDialogOpen(false);
-            }
-          }}
-          onRefreshAnalytics={async (campaign) => {
-            await refreshCampaignAnalytics(campaign.id);
-          }}
-        />
+          </div>
+        )}
       </div>
     </div>
   );
