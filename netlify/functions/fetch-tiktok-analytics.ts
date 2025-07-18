@@ -34,22 +34,21 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Extract username from Instagram URL
-    const usernameMatch = url.match(/instagram\.com\/([^\/\?]+)/);
-    if (!usernameMatch) {
+    // Validate TikTok URL
+    if (!url.includes('tiktok.com')) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid Instagram URL' }),
+        body: JSON.stringify({ error: 'Invalid TikTok URL' }),
       };
     }
 
-    // For now, return mock data since Instagram's API requires authentication
-    // In production, you would integrate with Instagram Basic Display API
+    // For now, return mock data
+    // TikTok's API requires complex authentication
     const mockData = {
-      views: Math.floor(Math.random() * 50000) + 10000,
-      engagement: Math.floor(Math.random() * 5000) + 1000,
-      rate: (Math.random() * 5 + 2).toFixed(1),
+      views: Math.floor(Math.random() * 200000) + 50000,
+      engagement: Math.floor(Math.random() * 20000) + 5000,
+      rate: (Math.random() * 10 + 5).toFixed(1),
     };
 
     return {
@@ -58,11 +57,11 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify(mockData),
     };
   } catch (error) {
-    console.error('Instagram analytics error:', error);
+    console.error('TikTok analytics error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Failed to fetch Instagram analytics' }),
+      body: JSON.stringify({ error: 'Failed to fetch TikTok analytics' }),
     };
   }
 };

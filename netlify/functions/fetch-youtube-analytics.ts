@@ -34,22 +34,22 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Extract username from Instagram URL
-    const usernameMatch = url.match(/instagram\.com\/([^\/\?]+)/);
-    if (!usernameMatch) {
+    // Extract video ID from YouTube URL
+    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    if (!videoIdMatch) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid Instagram URL' }),
+        body: JSON.stringify({ error: 'Invalid YouTube URL' }),
       };
     }
 
-    // For now, return mock data since Instagram's API requires authentication
-    // In production, you would integrate with Instagram Basic Display API
+    // For now, return mock data
+    // In production, you would use YouTube Data API v3
     const mockData = {
-      views: Math.floor(Math.random() * 50000) + 10000,
-      engagement: Math.floor(Math.random() * 5000) + 1000,
-      rate: (Math.random() * 5 + 2).toFixed(1),
+      views: Math.floor(Math.random() * 100000) + 20000,
+      engagement: Math.floor(Math.random() * 10000) + 2000,
+      rate: (Math.random() * 8 + 3).toFixed(1),
     };
 
     return {
@@ -58,11 +58,11 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify(mockData),
     };
   } catch (error) {
-    console.error('Instagram analytics error:', error);
+    console.error('YouTube analytics error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Failed to fetch Instagram analytics' }),
+      body: JSON.stringify({ error: 'Failed to fetch YouTube analytics' }),
     };
   }
 };
