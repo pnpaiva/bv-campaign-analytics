@@ -1,0 +1,14 @@
+# Beyond Views Code Owners
+# These owners will be automatically requested for review when someone opens a pull request
+
+# Global owners
+* @pnpaiva @pedronordskog
+
+# API and Security related files
+/src/services/ @pnpaiva
+/src/config/ @pnpaiva
+.env* @pnpaiva
+SECURITY.md @pnpaiva
+
+# Documentation
+*.md @pedronordskog @pnpaiva
