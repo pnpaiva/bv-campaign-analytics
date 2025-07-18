@@ -22,6 +22,24 @@ interface CampaignAnalytics {
   lastUpdated: string;
 }
 
+// Helper to clean and validate URLs
+function cleanUrl(url: string): string {
+  if (!url) return '';
+  
+  // Trim whitespace
+  let cleaned = url.trim();
+  
+  // Remove any spaces within the URL
+  cleaned = cleaned.replace(/\s+/g, '');
+  
+  // Ensure proper protocol
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    cleaned = 'https://' + cleaned;
+  }
+  
+  return cleaned;
+}
+
 // Helper to extract URLs from different content_urls formats
 function extractUrlsFromCampaign(campaign: any): string[] {
   const urls: string[] = [];
@@ -57,8 +75,8 @@ function extractUrlsFromCampaign(campaign: any): string[] {
   if (campaign.instagram_url) urls.push(campaign.instagram_url);
   if (campaign.tiktok_url) urls.push(campaign.tiktok_url);
   
-  // Filter out empty strings and duplicates
-  return [...new Set(urls.filter(url => url && url.trim() !== ''))];
+  // Clean all URLs and filter out empty strings
+  return [...new Set(urls.map(cleanUrl).filter(url => url && url.trim() !== ''))];
 }
 
 export const campaignAnalyticsAdapter = {
@@ -84,7 +102,7 @@ export const campaignAnalyticsAdapter = {
       // Extract URLs from the campaign using our flexible extractor
       const urls = extractUrlsFromCampaign(campaign);
       
-      console.log('Extracted URLs:', urls);
+      console.log('Extracted and cleaned URLs:', urls);
       
       if (urls.length === 0) {
         console.warn('No content URLs found for campaign');
