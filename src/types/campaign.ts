@@ -20,10 +20,11 @@ export interface CampaignAnalytics {
 
 export interface ContentMetric {
   url: string;
-  platform: 'youtube' | 'instagram';
+  platform: 'youtube' | 'instagram' | 'tiktok';
   views: number;
   likes: number;
   comments: number;
+  shares?: number; // TikTok specific
   engagementRate: number;
   title?: string;
   fetchedAt: string;
