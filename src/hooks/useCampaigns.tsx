@@ -342,7 +342,7 @@ export const useCampaigns = () => {
             throw new Error('No content URLs found to refresh');
           }
         } else {
-          throw new Error('No analytics data found for this campaign. Please add content URLs first.');
+          throw new Error('No analytics data found for this campaign. Please add content URLs and try again.');
         }
       }
       

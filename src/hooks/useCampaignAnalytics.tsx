@@ -36,7 +36,7 @@ export const useCampaignAnalytics = () => {
       console.log('Campaign data:', campaignData);
 
       if (!campaignData.analytics_data || campaignData.analytics_data.length === 0) {
-        throw new Error('No analytics data found for this campaign. Please add YouTube URLs first.');
+        throw new Error('No analytics data found for this campaign. Please add content URLs and try again.');
       }
 
       let successCount = 0;
