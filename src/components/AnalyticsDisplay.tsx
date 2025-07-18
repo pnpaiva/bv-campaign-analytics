@@ -1,11 +1,13 @@
 import React from 'react';
-import { AlertCircle, TrendingUp, Eye, Users } from 'lucide-react';
+import { AlertCircle, TrendingUp, Eye, Users, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface AnalyticsData {
   views: number;
   engagement: number;
   rate: number;
   error?: string;
+  fetchedAt?: string;
 }
 
 interface AnalyticsDisplayProps {
@@ -52,6 +54,19 @@ export function AnalyticsDisplay({ url, platform, analytics, showError = true }:
     }
   };
 
+  const getPlatformBgColor = (platform: string): string => {
+    switch (platform.toLowerCase()) {
+      case 'youtube':
+        return 'bg-red-50';
+      case 'instagram':
+        return 'bg-pink-50';
+      case 'tiktok':
+        return 'bg-gray-50';
+      default:
+        return 'bg-gray-50';
+    }
+  };
+
   if (analytics.error && showError) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -74,7 +89,7 @@ export function AnalyticsDisplay({ url, platform, analytics, showError = true }:
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+    <div className={`${getPlatformBgColor(platform)} border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{getPlatformIcon(platform)}</span>
@@ -107,7 +122,7 @@ export function AnalyticsDisplay({ url, platform, analytics, showError = true }:
           <div className="text-lg font-semibold text-gray-900">
             {formatNumber(analytics.engagement)}
           </div>
-          <div className="text-xs text-gray-500">Engagement</div>
+          <div className="text-xs text-gray-500">Likes</div>
         </div>
 
         <div className="text-center">
@@ -117,14 +132,20 @@ export function AnalyticsDisplay({ url, platform, analytics, showError = true }:
           <div className="text-lg font-semibold text-gray-900">
             {analytics.rate.toFixed(1)}%
           </div>
-          <div className="text-xs text-gray-500">Rate</div>
+          <div className="text-xs text-gray-500">Eng. Rate</div>
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="mt-3 pt-3 border-t border-gray-200">
         <p className="text-xs text-gray-500 truncate" title={url}>
           {url}
         </p>
+        {analytics.fetchedAt && (
+          <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+            <Clock className="w-3 h-3" />
+            <span>Updated {formatDistanceToNow(new Date(analytics.fetchedAt), { addSuffix: true })}</span>
+          </div>
+        )}
       </div>
     </div>
   );
