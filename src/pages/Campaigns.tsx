@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { CampaignList } from '../components/CampaignCard';
 import { CampaignAnalyticsModal, useCampaignAnalyticsModal } from '../components/CampaignAnalyticsModal';
 import { CampaignFormHandler } from '../components/CampaignFormHandler';
-import { campaignAnalyticsService } from '../services/campaign-analytics';
+import { campaignAnalyticsAdapter } from '../services/campaign-analytics-adapter';
 import { toast } from 'sonner';
 
 // Initialize Supabase
@@ -19,15 +19,7 @@ interface Campaign {
   creator?: string;
   status: string;
   created_at: string;
-  content_urls?: Array<{
-    url: string;
-    platform?: string;
-    analytics?: {
-      views: number;
-      engagement: number;
-      rate: number;
-    };
-  }>;
+  content_urls?: any; // Flexible to handle different structures
   analytics_updated_at?: string;
 }
 
@@ -72,7 +64,7 @@ export default function Campaigns() {
     try {
       // Refresh analytics for all campaigns
       const refreshPromises = campaigns.map(campaign => 
-        campaignAnalyticsService.refreshCampaignAnalytics(campaign.id)
+        campaignAnalyticsAdapter.refreshCampaignAnalytics(campaign.id)
       );
       
       await Promise.all(refreshPromises);
@@ -98,7 +90,7 @@ export default function Campaigns() {
   const handleRefresh = async (campaignId: string) => {
     try {
       toast.info('Refreshing campaign analytics...');
-      await campaignAnalyticsService.refreshCampaignAnalytics(campaignId);
+      await campaignAnalyticsAdapter.refreshCampaignAnalytics(campaignId);
       await fetchCampaigns();
       toast.success('Analytics refreshed successfully');
     } catch (error) {
