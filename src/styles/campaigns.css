@@ -1,0 +1,59 @@
+/* Campaign-specific styles */
+.campaign-card {
+  transition: all 0.2s ease-in-out;
+}
+
+.campaign-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Analytics modal animations */
+.analytics-modal-enter {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.analytics-modal-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms, transform 200ms;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Tailwind form plugin styles (if not using the plugin) */
+input[type='text'],
+input[type='url'],
+select {
+  appearance: none;
+  background-color: #fff;
+  border-color: #d1d5db;
+  border-width: 1px;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+input[type='text']:focus,
+input[type='url']:focus,
+select:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
