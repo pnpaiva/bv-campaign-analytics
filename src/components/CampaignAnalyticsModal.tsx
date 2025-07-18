@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, RefreshCw, TrendingUp, Eye, Users, AlertCircle } from 'lucide-react';
-import { campaignAnalyticsService, CampaignAnalytics } from '../services/campaign-analytics';
+import { campaignAnalyticsAdapter, CampaignAnalytics } from '../services/campaign-analytics-adapter';
 import { AnalyticsGrid } from './AnalyticsDisplay';
 import { toast } from 'sonner';
 
@@ -27,7 +27,8 @@ export function CampaignAnalyticsModal({ campaignId, isOpen, onClose }: Campaign
     setError(null);
     
     try {
-      const data = await campaignAnalyticsService.fetchCampaignAnalytics(campaignId);
+      console.log('Fetching analytics for campaign:', campaignId);
+      const data = await campaignAnalyticsAdapter.fetchCampaignAnalytics(campaignId);
       
       if (!data) {
         setError('Campaign not found');
@@ -48,7 +49,7 @@ export function CampaignAnalyticsModal({ campaignId, isOpen, onClose }: Campaign
     setIsRefreshing(true);
     
     try {
-      const data = await campaignAnalyticsService.refreshCampaignAnalytics(campaignId);
+      const data = await campaignAnalyticsAdapter.refreshCampaignAnalytics(campaignId);
       
       if (data) {
         setAnalytics(data);
