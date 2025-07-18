@@ -1,10 +1,11 @@
 import { fetchInstagramData, isInstagramUrl } from './instagramApi';
 import { fetchYouTubeData, isYouTubeUrl } from './youtubeApi';
+import { fetchTikTokData, isTikTokUrl } from './tiktokApi';
 import { toast } from 'sonner';
 
 export interface ContentAnalytics {
   url: string;
-  platform: 'youtube' | 'instagram';
+  platform: 'youtube' | 'instagram' | 'tiktok';
   viewCount: number;
   engagementCount: number;
   engagementRate: number;
@@ -20,6 +21,7 @@ export interface CampaignMetrics {
   platformBreakdown: {
     youtube: { count: number; views: number; engagement: number };
     instagram: { count: number; views: number; engagement: number };
+    tiktok: { count: number; views: number; engagement: number };
   };
 }
 
@@ -76,6 +78,29 @@ export async function fetchContentAnalytics(urls: string[]): Promise<ContentAnal
               error: 'Failed to fetch data',
             });
           }
+        } else if (isTikTokUrl(url)) {
+          const data = await fetchTikTokData(url);
+          if (data) {
+            analytics.push({
+              url,
+              platform: 'tiktok',
+              viewCount: data.viewCount,
+              engagementCount: data.likeCount + data.commentCount + data.shareCount,
+              engagementRate: data.engagementRate,
+              title: data.caption?.substring(0, 50) + (data.caption && data.caption.length > 50 ? '...' : ''),
+              fetchedAt: new Date().toISOString(),
+            });
+          } else {
+            analytics.push({
+              url,
+              platform: 'tiktok',
+              viewCount: 0,
+              engagementCount: 0,
+              engagementRate: 0,
+              fetchedAt: new Date().toISOString(),
+              error: 'Failed to fetch data',
+            });
+          }
         } else {
           console.warn(`Unsupported URL: ${url}`);
           toast.error(`Unsupported URL format: ${url}`);
@@ -83,9 +108,13 @@ export async function fetchContentAnalytics(urls: string[]): Promise<ContentAnal
       } catch (error) {
         console.error(`Error fetching analytics for ${url}:`, error);
         // Still add the URL with error status
+        let platform: 'youtube' | 'instagram' | 'tiktok' = 'youtube';
+        if (isInstagramUrl(url)) platform = 'instagram';
+        else if (isTikTokUrl(url)) platform = 'tiktok';
+        
         analytics.push({
           url,
-          platform: isYouTubeUrl(url) ? 'youtube' : 'instagram',
+          platform,
           viewCount: 0,
           engagementCount: 0,
           engagementRate: 0,
@@ -112,6 +141,7 @@ export function calculateCampaignMetrics(analytics: ContentAnalytics[]): Campaig
     platformBreakdown: {
       youtube: { count: 0, views: 0, engagement: 0 },
       instagram: { count: 0, views: 0, engagement: 0 },
+      tiktok: { count: 0, views: 0, engagement: 0 },
     },
   };
 
@@ -141,7 +171,7 @@ export function calculateCampaignMetrics(analytics: ContentAnalytics[]): Campaig
   return metrics;
 }
 
-export function validateContentUrl(url: string): { isValid: boolean; platform?: 'youtube' | 'instagram'; error?: string } {
+export function validateContentUrl(url: string): { isValid: boolean; platform?: 'youtube' | 'instagram' | 'tiktok'; error?: string } {
   if (!url || typeof url !== 'string') {
     return { isValid: false, error: 'URL is required' };
   }
@@ -156,7 +186,11 @@ export function validateContentUrl(url: string): { isValid: boolean; platform?: 
     return { isValid: true, platform: 'instagram' };
   }
 
-  return { isValid: false, error: 'URL must be a valid YouTube or Instagram link' };
+  if (isTikTokUrl(trimmedUrl)) {
+    return { isValid: true, platform: 'tiktok' };
+  }
+
+  return { isValid: false, error: 'URL must be a valid YouTube, Instagram, or TikTok link' };
 }
 
 export function formatNumber(num: number): string {
