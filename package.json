@@ -34,3 +34,8 @@
     "vite": "^5.0.8"
   }
 }
+{
+  "scripts": {
+    "build:dev": "vite build --mode development"
+  }
+}
