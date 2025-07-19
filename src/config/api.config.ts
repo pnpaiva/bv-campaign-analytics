@@ -14,8 +14,8 @@ export const API_CONFIG = {
   YOUTUBE_API_KEY: import.meta.env.VITE_YOUTUBE_API_KEY || (isDevelopment ? '' : ''),
   
   // Apify Actors
-  APIFY_INSTAGRAM_ACTOR: import.meta.env.VITE_APIFY_INSTAGRAM_ACTOR || 'apify/instagram-post-scraper',
-  APIFY_TIKTOK_ACTOR: import.meta.env.VITE_APIFY_TIKTOK_ACTOR || 'clockworks/free-tiktok-scraper',
+  APIFY_INSTAGRAM_ACTOR: 'nH2AHrwxeTRJoN5hX',
+  APIFY_TIKTOK_ACTOR: 'OtzYfK1ndEGdwWFKQ',
 };
 
 // API Endpoints

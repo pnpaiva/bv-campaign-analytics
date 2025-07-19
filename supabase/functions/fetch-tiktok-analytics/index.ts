@@ -35,9 +35,9 @@ serve(async (req) => {
     const cleanedUrl = url.trim().replace(/\s+/g, '')
     console.log('Processing TikTok URL:', cleanedUrl)
 
-    // Extract TikTok video ID from URL
-    const videoIdMatch = cleanedUrl.match(/(?:tiktok\.com\/@[\w.-]+\/video\/|tiktok\.com\/v\/)([\d]+)/)
-    if (!videoIdMatch) {
+    // Validate TikTok URL format
+    const isTikTokUrl = cleanedUrl.includes('tiktok.com')
+    if (!isTikTokUrl) {
       return new Response(
         JSON.stringify({ error: 'Invalid TikTok URL format' }),
         { 
@@ -47,8 +47,7 @@ serve(async (req) => {
       )
     }
 
-    const videoId = videoIdMatch[1]
-    console.log('TikTok video ID:', videoId)
+    console.log('Valid TikTok URL detected')
 
     // Get Apify API key from environment
     const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY')
@@ -72,8 +71,8 @@ serve(async (req) => {
     }
 
     try {
-      // Start Apify actor run
-      console.log('Starting Apify actor for TikTok analytics...')
+      // Start Apify actor run with TikTok URL directly
+      console.log('Starting Apify TikTok actor...')
       const runResponse = await fetch(
         `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?token=${APIFY_API_KEY}`,
         {
@@ -82,17 +81,9 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            hashtags: ["fyp"],
-            resultsPerPage: 100,
-            profileScrapeSections: ["videos"],
-            profileSorting: "latest",
-            excludePinnedPosts: false,
-            searchSection: "",
-            maxProfilesPerQuery: 10,
-            shouldDownloadVideos: false,
-            shouldDownloadCovers: false,
-            shouldDownloadSubtitles: false,
-            shouldDownloadSlideshowImages: false
+            postURLs: [cleanedUrl],
+            resultsPerPage: 10,
+            maxPostsPerQuery: 10
           }),
         }
       )
@@ -153,13 +144,13 @@ serve(async (req) => {
 
       // Process the TikTok data
       const video = dataset[0]
-      console.log('TikTok video data received')
+      console.log('TikTok video data received:', JSON.stringify(video, null, 2))
       
-      // Extract metrics
-      const views = video.playCount || video.videoMeta?.playCount || 0
-      const likes = video.diggCount || video.videoMeta?.diggCount || 0
-      const comments = video.commentCount || video.videoMeta?.commentCount || 0
-      const shares = video.shareCount || video.videoMeta?.shareCount || 0
+      // Extract metrics from TikTok video data
+      const views = video.playCount || video.videoMeta?.playCount || video.viewCount || 0
+      const likes = video.diggCount || video.videoMeta?.diggCount || video.likesCount || 0
+      const comments = video.commentCount || video.videoMeta?.commentCount || video.commentsCount || 0
+      const shares = video.shareCount || video.videoMeta?.shareCount || video.sharesCount || 0
       const engagement = likes + comments + shares
       const rate = views > 0 ? parseFloat(((engagement / views) * 100).toFixed(2)) : 0
 

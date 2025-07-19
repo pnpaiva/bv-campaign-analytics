@@ -72,8 +72,8 @@ serve(async (req) => {
     }
 
     try {
-      // Start Apify actor run
-      console.log('Starting Apify actor for Instagram analytics...')
+      // Start Apify actor run with correct input format
+      console.log('Starting Apify Instagram actor...')
       const runResponse = await fetch(
         `https://api.apify.com/v2/acts/${APIFY_ACTOR_ID}/runs?token=${APIFY_API_KEY}`,
         {
@@ -144,12 +144,12 @@ serve(async (req) => {
 
       // Process the Instagram data
       const post = dataset[0]
-      console.log('Instagram post data received')
+      console.log('Instagram post data received:', JSON.stringify(post, null, 2))
       
-      // Extract metrics
-      const views = post.videoViewCount || post.videoPlayCount || 0
-      const likes = post.likesCount || 0
-      const comments = post.commentsCount || 0
+      // Extract metrics from Instagram post data
+      const views = post.videoViewCount || post.videoPlayCount || post.viewCount || 0
+      const likes = post.likesCount || post.likes || 0
+      const comments = post.commentsCount || post.comments || 0
       const engagement = likes + comments
       const rate = views > 0 ? parseFloat(((engagement / views) * 100).toFixed(2)) : 0
 
