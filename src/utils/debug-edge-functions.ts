@@ -219,9 +219,9 @@ export const edgeFunctionDebugger = new EdgeFunctionDebugger();
 // Browser console helper
 if (typeof window !== 'undefined') {
   (window as any).debugEdgeFunctions = async () => {
-    const debugger = new EdgeFunctionDebugger();
-    const results = await debugger.testAllAnalyticsFunctions();
-    const report = debugger.generateReport(results);
+    const debuggerInstance = new EdgeFunctionDebugger();
+    const results = await debuggerInstance.testAllAnalyticsFunctions();
+    const report = debuggerInstance.generateReport(results);
     console.log(report);
     return results;
   };

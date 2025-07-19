@@ -52,7 +52,7 @@ serve(async (req) => {
 
     // Get Apify API key from environment
     const APIFY_API_KEY = Deno.env.get('APIFY_API_KEY')
-    const APIFY_ACTOR_ID = Deno.env.get('APIFY_ACTOR_ID_INSTAGRAM') || 'apify/instagram-post-scraper'
+    const APIFY_ACTOR_ID = 'nH2AHrwxeTRJoN5hX' // Instagram actor ID
     
     if (!APIFY_API_KEY) {
       console.error('Apify API key not configured')
@@ -82,10 +82,8 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            urls: [cleanedUrl],
-            resultsLimit: 1,
-            maxRequestRetries: 3,
-            extendOutputFunction: async () => {},
+            username: [cleanedUrl],
+            resultsLimit: 30
           }),
         }
       )
