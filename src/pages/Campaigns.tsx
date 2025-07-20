@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Filter } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { CampaignList } from '../components/CampaignCard';
 import { CampaignAnalyticsModal, useCampaignAnalyticsModal } from '../components/CampaignAnalyticsModal';
 import { CampaignFormHandler } from '../components/CampaignFormHandler';
 import { campaignAnalyticsAdapter } from '../services/campaign-analytics-adapter';
 import { toast } from 'sonner';
-
-// Initialize Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Campaign {
   id: string;
