@@ -1,16 +1,3 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  server: {
-    port: 8080
-  }
-})
+// This file exists to satisfy tsconfig.node.json requirements
+// The actual Vite configuration is in vite.config.js
+export {}
