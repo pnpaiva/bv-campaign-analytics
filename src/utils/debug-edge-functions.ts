@@ -42,6 +42,25 @@ export async function testTikTokAnalytics(url: string) {
   }
 }
 
+// Debug functions collection
+export const edgeFunctionDebugger = {
+  testInstagramAnalytics,
+  testTikTokAnalytics,
+  async testAllAnalyticsFunctions() {
+    console.log('🔍 Testing all analytics functions...');
+    
+    // Test Instagram
+    console.log('\n📸 Testing Instagram Analytics...');
+    await testInstagramAnalytics('https://www.instagram.com/p/test123/');
+    
+    // Test TikTok  
+    console.log('\n🎵 Testing TikTok Analytics...');
+    await testTikTokAnalytics('https://www.tiktok.com/@username/video/123456');
+    
+    console.log('\n✅ All analytics functions tested!');
+  }
+};
+
 // Example usage:
 // testInstagramAnalytics('https://www.instagram.com/p/ABC123/');
 // testTikTokAnalytics('https://www.tiktok.com/@username/video/123456');
